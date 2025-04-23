@@ -2,14 +2,15 @@
 zeta:
   redis:
     database: 0
-    ip: localhost
+    ip: vm79
     port: 6379
     password: ''
   # 数据源配置
   database:
-    url: jdbc:mysql://localhost:3306/zeta_java?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8
-    username: root
-    password: 'root'
+#    url: jdbc:mysql://localhost:3306/zeta_java?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8
+    url: jdbc:mysql://localhost:3306/zeta_java?serverTimezone=Asia/Shanghai&useSSL=false&characterEncoding=utf8&allowPublicKeyRetrieval=true&useUnicode=true
+    username: hedeoer
+    password: hedeoer123321
     druid:
       # druid web监控台是否启动
       WebConsoleEnabled: true
@@ -19,5 +20,5 @@ zeta:
 # 日志配置
 logging:
   file:
-    path: D:/server/log/zeta-java
+    path: A:/server/log/zeta-java
   config: classpath:logback-spring.xml
