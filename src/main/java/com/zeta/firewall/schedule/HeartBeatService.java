@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeta.firewall.model.entity.AgentNodeInfo;
 import com.zeta.firewall.service.AgentNodeInfoService;
+import com.zeta.firewall.util.DateTimeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class HeartBeatService {
     private static final Logger logger = LoggerFactory.getLogger(HeartBeatService.class);
-    private static final long FIXED_DELAY = 10000;
+    private static final long FIXED_DELAY = 25000;
     private final ObjectMapper objectMapper = new ObjectMapper();
     // 统计某个节点连续离线次数
     private final ConcurrentHashMap<String, Integer> offlineCountMap = new ConcurrentHashMap<>();
@@ -39,22 +40,29 @@ public class HeartBeatService {
     private AgentNodeInfoService agentNodeInfoService;
 
     /**
-     * master节点周期性，异步地检查来自agent节点的心跳
+     * master节点周期性地检查来自agent节点的心跳
      * 每10秒执行一次，但“上次任务执行完毕后再等10秒”才开始下次（适合任务耗时不确定且不能重叠)
      */
-    @Async("taskExecutor")
     @Scheduled(fixedDelay = FIXED_DELAY)
     public void heartBeatCheckPeriod() throws JsonProcessingException {
         // 通过读取redis中名为 heartbeats 的hash表数据来检测agent节点的存活状态
         // 将所有汇报心跳的agentId数据持久化
         // 如何区分agent节点心跳是否是首次？如果是首次，需要持久化agent节点信息;不是首次，需要判断agent节点是否离线？
         //     通过对比redis服务器时间戳和心跳汇报的时间戳间隔，比如超过30秒，表示agent节点离线
-        Map<Object, Object> heartBeats = stringRedisTemplate.opsForHash().entries("heartbeats");
+        Map<Object, Object> heartBeats = stringRedisTemplate.opsForHash().entries("firewall:heartbeats");
 
         for (Map.Entry<Object, Object> heartBeat : heartBeats.entrySet()) {
             String agentId = (String) heartBeat.getKey();
             String value = (String) heartBeat.getValue();
-            AgentNodeInfo agentNodeInfo = objectMapper.readValue(value, AgentNodeInfo.class);
+            AgentNodeInfo agentNodeInfo = new AgentNodeInfo();
+            try {
+                // 尝试解析JSON，如果失败则跳过该条数据
+                agentNodeInfo = objectMapper.readValue(value, AgentNodeInfo.class);
+            } catch (Exception e) {
+                logger.error("Invalid JSON data for agent {}, value: {}, skipping...", agentId, value);
+                continue;
+            }
+
 
             Long reportTimeStamp = Long.parseLong(agentNodeInfo.getHeartbeatTimestamp());
             Boolean firstReportFlag = agentNodeInfo.getIsFirstHeartbeat();
@@ -62,6 +70,10 @@ public class HeartBeatService {
 
             boolean isAlive = currentRedisServerTime >= reportTimeStamp &&
                     Math.abs(currentRedisServerTime - reportTimeStamp) <= OFFLINE_THRESHOLD;
+
+            // 将秒级时间戳转化为 yyyy-MM-dd HH:mm:ss格式字符串
+            String heartbeatTimestamp = DateTimeUtil.timestampSecToString(reportTimeStamp);
+            agentNodeInfo.setHeartbeatTimestamp(heartbeatTimestamp);
 
             if (firstReportFlag) {
                 logger.info("agent节点: {} 首次注册，对agent节点信息进行持久化", agentId);

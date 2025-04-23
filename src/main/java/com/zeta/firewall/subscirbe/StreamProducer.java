@@ -5,16 +5,16 @@ import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.StreamOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
+@Service
 public class StreamProducer {
 
     private final StringRedisTemplate redisTemplate;
-    private final String streamKey;
-    public StreamProducer(StringRedisTemplate redisTemplate, String streamKey) {
+    public StreamProducer(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
-        this.streamKey = streamKey;
     }
     /**
      * 向指定的 Redis Stream 发布一条消息，并设置流的最大长度约为 1000 条。
@@ -26,7 +26,7 @@ public class StreamProducer {
      * @param message 需发布到 Stream 的消息内容，键值对形式
      * @return 新添加消息的 RecordId (相当于Jedis中的StreamEntryID)
      */
-    public RecordId publishMessage(Map<String, String> message) {
+    public RecordId publishMessage(String streamKey,Map<String, String> message) {
         StreamOperations<String, Object, Object> streamOps = redisTemplate.opsForStream();
 
         // 创建一个MapRecord

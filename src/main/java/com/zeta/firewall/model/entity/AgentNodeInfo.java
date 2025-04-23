@@ -7,28 +7,36 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+
 /**
- * agent节点心跳汇报的信息映射类
+ * agent节点向master节点汇报心跳时，需要汇报的信息
+ * 上报心跳时间戳，是否首次上报， 是否存活，操作系统，主机名，节点ip
+ *
  */
+//   /** CPU利用率 */
+//  cpuUsage?: number
+//  /** 内存利用率 */
+//  memoryUsage?: number
+//  /** 磁盘利用率 */
+//  diskUsage?: number
+//  /** 客户端版本 */
+//  clientVersion?: string
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @TableName("agent_node_info")
-public class AgentNodeInfo {
-    // agent节点唯一标识， 22位字符串
+public  class AgentNodeInfo {
     @TableId(value = "agent_id")
     private String agentId;
-    // agent节点心跳上报时的秒时间戳
     private String heartbeatTimestamp;
-    // 是否首次上报
     private Boolean isFirstHeartbeat;
-    // 是否存活
     private Boolean isActive;
-    // agent节点的操作系统类型
     private String osName;
-    // 节点主机名
     private String hostName;
-    // 节点ip
     private String ip;
+    private String cpuUsage;
+    private String memoryUsage;
+    private String diskUsage;
+    private String clientVersion;
 }
