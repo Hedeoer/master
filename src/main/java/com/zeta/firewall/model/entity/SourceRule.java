@@ -1,10 +1,7 @@
 package com.zeta.firewall.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,6 +9,7 @@ import java.util.Map;
 /**
  * 源地址规则 - 基于源IP地址控制流量
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

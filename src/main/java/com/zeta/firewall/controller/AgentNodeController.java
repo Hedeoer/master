@@ -1,6 +1,7 @@
 package com.zeta.firewall.controller;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.lang.hash.Hash;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -8,16 +9,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.xiaoymin.knife4j.annotations.ApiOperationSupport;
 import com.zeta.firewall.model.dto.AgentNodeInfoDTO;
+import com.zeta.firewall.model.dto.RedisCommandMessage;
 import com.zeta.firewall.model.entity.AgentNodeInfo;
+import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.model.entity.RuleType;
 import com.zeta.firewall.model.param.AgentNodeQueryParam;
 import com.zeta.firewall.schedule.HeartBeatService;
 import com.zeta.firewall.service.AgentNodeInfoService;
 import com.zeta.firewall.subscirbe.StreamProducer;
+import com.zeta.firewall.util.JsonMessageConverter;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.web.bind.annotation.*;
 import org.zetaframework.base.controller.SuperSimpleController;
 import org.zetaframework.base.controller.extra.NoPageQueryController;
@@ -28,10 +34,7 @@ import org.zetaframework.core.log.annotation.SysLog;
 import org.zetaframework.core.saToken.annotation.PreAuth;
 import org.zetaframework.core.saToken.annotation.PreCheckPermission;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -52,7 +55,6 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
 
     private final HeartBeatService heartBeatService;
     private final StreamProducer streamProducer;
-    private final ObjectMapper objectMapper;
 
     /**
      * 分页查询节点列表
@@ -364,7 +366,35 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
             String streamKey = "";
             for (String nodeId : nodeIds) {
                 streamKey = "pub:" +  nodeId;
-                streamProducer.publishMessage(streamKey,new HashMap<>());
+
+
+                HashMap<String, String> map = new HashMap<>();
+                map.put("isUsing", "false");
+                map.put("policy", "false");
+
+                List<String> primaryKeyColumns = List.of("port", "protocol");
+
+                PortRule portRule = PortRule.builder()
+                        .port("2323")
+                        .build();
+
+                RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
+                        .agentId(nodeId)
+                        .ts(System.currentTimeMillis() / 1000)
+                        .agentComponentType(RedisCommandMessage.ComponentType.FIREWALL)
+                        .dataOpType(RedisCommandMessage.OperationType.OPTIONS)
+                        .requestParams(map)
+                        .primaryKeyColumns(primaryKeyColumns)
+                        .data(Collections.<PortRule>emptyList())
+                        .old(portRule)
+                        .build();
+
+                Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
+
+                RecordId recordId = streamProducer.publishMessage(streamKey, messageMap);
+
+                // TODO 消费
+
             }
 
 
