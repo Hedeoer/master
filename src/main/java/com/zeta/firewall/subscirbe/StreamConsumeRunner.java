@@ -7,7 +7,6 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.util.List;
 
 /**
@@ -31,7 +30,7 @@ public class StreamConsumeRunner {
         String groupName = "spring-group";
         String consumerName = "spring-consumer";
 
-        streamConsumer = new StreamConsumer(connectionFactory, streamKey, groupName, consumerName);
+        streamConsumer = new StreamConsumer( connectionFactory,streamKey, groupName, consumerName);
 
         // 建议新线程异步消费，避免阻塞主线程
         Thread t = new Thread(() -> {

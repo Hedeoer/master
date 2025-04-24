@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Repository;
 
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Repository;
 @ComponentScan(basePackages = {"com.zeta", "org.zetaframework"})
 @MapperScan(value= {"com.zeta.**.dao"}, annotationClass = Repository.class)
 @EnableScheduling
+@EnableRetry
 @SpringBootApplication
 public class ZetaApplication {
     private static final Logger logger = LoggerFactory.getLogger(ZetaApplication.class);

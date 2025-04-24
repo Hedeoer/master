@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +25,9 @@ public class HeartBeatService {
     private static final Logger logger = LoggerFactory.getLogger(HeartBeatService.class);
     private static final long FIXED_DELAY = 25000;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    // redis 中存储心跳数据的hash表名
+    private final String heartBeatHashTableName = "firewall:heartbeats";
+
     // 统计某个节点连续离线次数
     private final ConcurrentHashMap<String, Integer> offlineCountMap = new ConcurrentHashMap<>();
     // 记录最后一次打印的状态（true 在线，false 离线）
@@ -84,7 +86,7 @@ public class HeartBeatService {
                 // 更新Redis中的心跳数据，将isFirstHeartbeat设置为false
                 agentNodeInfo.setIsFirstHeartbeat(false);
                 String updatedValue = objectMapper.writeValueAsString(agentNodeInfo);
-                stringRedisTemplate.opsForHash().put("heartbeats", agentId, updatedValue);
+                stringRedisTemplate.opsForHash().put(heartBeatHashTableName, agentId, updatedValue);
                 continue;
             }
 

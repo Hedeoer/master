@@ -1,28 +1,26 @@
 package com.zeta.firewall.controller;
 
 import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.lang.hash.Hash;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.xiaoymin.knife4j.annotations.ApiOperationSupport;
 import com.zeta.firewall.model.dto.AgentNodeInfoDTO;
 import com.zeta.firewall.model.dto.RedisCommandMessage;
 import com.zeta.firewall.model.entity.AgentNodeInfo;
 import com.zeta.firewall.model.entity.PortRule;
-import com.zeta.firewall.model.entity.RuleType;
 import com.zeta.firewall.model.param.AgentNodeQueryParam;
 import com.zeta.firewall.schedule.HeartBeatService;
 import com.zeta.firewall.service.AgentNodeInfoService;
+import com.zeta.firewall.service.StreamResponseService;
 import com.zeta.firewall.subscirbe.StreamProducer;
 import com.zeta.firewall.util.JsonMessageConverter;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.web.bind.annotation.*;
 import org.zetaframework.base.controller.SuperSimpleController;
@@ -31,10 +29,13 @@ import org.zetaframework.base.param.PageParam;
 import org.zetaframework.base.result.ApiResult;
 import org.zetaframework.base.result.PageResult;
 import org.zetaframework.core.log.annotation.SysLog;
-import org.zetaframework.core.saToken.annotation.PreAuth;
 import org.zetaframework.core.saToken.annotation.PreCheckPermission;
 
+import javax.annotation.Resource;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 /**
@@ -44,6 +45,7 @@ import java.util.stream.Collectors;
  *
  * @author AutoGenerator
  */
+
 @Slf4j
 @RequiredArgsConstructor
 @Api(tags = "Agent节点管理")
@@ -55,6 +57,10 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
 
     private final HeartBeatService heartBeatService;
     private final StreamProducer streamProducer;
+    @Autowired
+    private StreamResponseService streamResponseService;
+    @Resource(name = "taskExecutor")  // 按名称注入，不需要 @Autowired
+    private Executor taskExecutor;
 
     /**
      * 分页查询节点列表
@@ -363,48 +369,113 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
                 return ApiResult.success("刷新成功", true);
             }
 
-            String streamKey = "";
-            for (String nodeId : nodeIds) {
-                streamKey = "pub:" +  nodeId;
+            // 存储刷新失败的节点列表
+            List<String> refreshFailNodeIds = new ArrayList<>();
+            // 串行的向所有agent节点发布手动心跳命令，消费来自每个agent节点的响应
+            // 如果节点非常多且子节点响应耗时长，极端情况下每个节点都会等待一定时间，将会导致本次controller响应超时
+            // 考虑使用异步发送命令
+            refreshFailNodeIds = refreshNodesAsync(nodeIds, 10);
 
-
-                HashMap<String, String> map = new HashMap<>();
-                map.put("isUsing", "false");
-                map.put("policy", "false");
-
-                List<String> primaryKeyColumns = List.of("port", "protocol");
-
-                PortRule portRule = PortRule.builder()
-                        .port("2323")
-                        .build();
-
-                RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
-                        .agentId(nodeId)
-                        .ts(System.currentTimeMillis() / 1000)
-                        .agentComponentType(RedisCommandMessage.ComponentType.FIREWALL)
-                        .dataOpType(RedisCommandMessage.OperationType.OPTIONS)
-                        .requestParams(map)
-                        .primaryKeyColumns(primaryKeyColumns)
-                        .data(Collections.<PortRule>emptyList())
-                        .old(portRule)
-                        .build();
-
-                Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
-
-                RecordId recordId = streamProducer.publishMessage(streamKey, messageMap);
-
-                // TODO 消费
-
-            }
-
-
-
+            // 不管刷新结果如何，都手动触发一次主节点心跳检查
             heartBeatService.heartBeatCheckPeriod();
-            log.info("手动刷新节点状态成功");
+
+            if (!refreshFailNodeIds.isEmpty()) {
+                log.error("部分节点: {} 刷新失败", refreshFailNodeIds);
+                // 虽然部分节点刷新失败，但是主节点已经手动触发了一次心跳检查，刷新成功的节点依旧可以展示
+                return ApiResult.success("部分节点刷新失败：" + refreshFailNodeIds, true);
+            }
             return ApiResult.success("刷新成功", true);
         } catch (JsonProcessingException e) {
             log.error("刷新节点状态失败", e);
             return ApiResult.fail("刷新失败: " + e.getMessage(), false);
         }
     }
+
+    /**
+     * 异步刷新多个节点
+     *
+     * @param nodeIds 需要刷新的节点ID列表
+     * @param timeoutSeconds 操作超时时间（秒）
+     * @return 刷新失败的节点ID列表
+     */
+    public List<String> refreshNodesAsync(List<String> nodeIds, int timeoutSeconds) {
+        // 创建线程安全的集合，用于存储刷新失败的节点ID
+        List<String> failedNodeIds = Collections.synchronizedList(new ArrayList<>());
+
+        // 为每个节点创建异步任务，并使用配置好的线程池执行
+        List<CompletableFuture<Void>> futures = nodeIds.stream()
+                .map(nodeId -> CompletableFuture.runAsync(() -> refreshSingleNode(nodeId, failedNodeIds), taskExecutor))
+                .collect(Collectors.toList());
+
+        try {
+            // 等待所有异步任务完成，并设置超时时间
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);  // 使用完整类名引用TimeUnit
+        } catch (InterruptedException e) {
+            // 如果等待过程被中断，记录警告并重新设置中断标志
+            log.warn("Node refresh operation was interrupted", e);
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException e) {
+            // 如果任务执行过程中发生异常，记录错误
+            log.error("Error during node refresh operation", e.getCause());
+        } catch (java.util.concurrent.TimeoutException e) {  // 使用完整类名引用TimeoutException
+            // 如果操作超时，记录警告
+            log.warn("Node refresh operation timed out after {} seconds", timeoutSeconds);
+        }
+
+        // 返回刷新失败的节点ID列表
+        return failedNodeIds;
+    }
+
+    /**
+     * 刷新单个节点
+     */
+    private void refreshSingleNode(String nodeId, List<String> failedNodeIds) {
+        String pubStreamkey = "pub:" + nodeId;
+        String subStreamkey = "sub:" + nodeId;
+
+        try {
+            // 构建消息体
+            HashMap<String, String> map = new HashMap<>();
+            map.put("isUsing", "false");
+            map.put("policy", "false");
+
+            List<String> primaryKeyColumns = List.of("port", "protocol");
+
+            PortRule portRule = PortRule.builder()
+                    .port("2323")
+                    .build();
+
+            RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
+                    .agentId(nodeId)
+                    .ts(System.currentTimeMillis() / 1000)
+                    .agentComponentType(RedisCommandMessage.ComponentType.FIREWALL)
+                    .dataOpType(RedisCommandMessage.OperationType.OPTIONS)
+                    .requestParams(map)
+                    .primaryKeyColumns(primaryKeyColumns)
+                    .data(Collections.<PortRule>emptyList())
+                    .old(portRule)
+                    .build();
+
+            Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
+
+            // 发布消息
+            RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
+
+            // 获取响应，重试的方式获取响应，减少因为从节点响应不及时导致的失败
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+
+            // 判断是否刷新成功
+            // 判断是否刷新成功，agent节点会向 名为"pub:" + nodeId 的StreamKey发送消息id为recordId的消息，其中value中包含status字段，如果status为200则刷新成功
+            boolean respSuccess = value.containsKey("status") && value.get("status").equals("200");
+            if (!respSuccess) {
+                failedNodeIds.add(nodeId);
+            }
+        } catch (Exception e) {
+            log.error("Failed to refresh node: {}", nodeId, e);
+            failedNodeIds.add(nodeId);
+        }
+    }
+
+
 }
