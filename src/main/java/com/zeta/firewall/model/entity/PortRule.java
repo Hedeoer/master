@@ -1,5 +1,9 @@
 package com.zeta.firewall.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;
 
@@ -16,12 +20,19 @@ import java.util.Objects;
 @NoArgsConstructor
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
+@TableName("firewall_port_rule")
 public class PortRule extends AbstractFirewallRule {
+
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
+
     private String family;    // ip type (ipv4 ,ipv6)
     private String port;      // 端口号或范围 (如 "80" 或 "1024-2048")
     private String protocol;  // 协议 (tcp 或 udp)
+    @TableField("`using`")
     private Boolean using;    // 端口使用状态 （已使用，未使用）
     private Boolean policy;   // 端口策略（允许，拒绝）
+    @TableField(typeHandler = com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler.class)
     private SourceRule sourceRule; // 源IP地址或CIDR
     private String descriptor; //端口描述信息
 

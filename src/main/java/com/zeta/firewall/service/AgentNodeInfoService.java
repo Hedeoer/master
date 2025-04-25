@@ -6,4 +6,5 @@ import com.zeta.firewall.model.entity.AgentNodeInfo;
 
 public interface AgentNodeInfoService extends IService<AgentNodeInfo> {
 
+
 }
