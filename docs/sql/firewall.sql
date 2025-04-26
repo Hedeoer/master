@@ -12,6 +12,7 @@ CREATE TABLE `firewall_port_rule`
     `permanent`   bit(1)       NULL DEFAULT NULL COMMENT '是否永久生效',
     `type`        varchar(32)  NULL DEFAULT NULL COMMENT '规则类型',
     `zone`        varchar(32)  NULL DEFAULT NULL COMMENT '作用域',
+    `agent_id`    varchar(64)  NULL DEFAULT NULL COMMENT '所属节点ID',
 
     -- PortRule specific fields
     `family`      varchar(10)  NULL DEFAULT NULL COMMENT 'ip类型(ipv4,ipv6)',
@@ -23,7 +24,7 @@ CREATE TABLE `firewall_port_rule`
     `descriptor`  varchar(255) NULL DEFAULT NULL COMMENT '端口描述信息',
 
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_port_protocol` (`port`, `protocol`) COMMENT '端口和协议唯一索引'
+    UNIQUE INDEX `uk_agent_port_protocol`(`agent_id`, `port`, `protocol`) COMMENT '节点下端口和协议唯一索引'
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = '防火墙端口规则表'

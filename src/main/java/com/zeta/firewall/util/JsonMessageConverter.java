@@ -1,13 +1,10 @@
 package com.zeta.firewall.util;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.zeta.firewall.model.dto.RedisCommandMessage;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.formula.functions.T;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -19,7 +16,7 @@ public class JsonMessageConverter {
 
     static {
         // Configure ObjectMapper
-        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+//        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         // 修改枚举处理配置
         objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL, false);
@@ -86,15 +83,15 @@ public class JsonMessageConverter {
 
         // 添加基本字段
         if (message.getAgentId() != null) {
-            map.put("agent_id", message.getAgentId());
+            map.put("agentId", message.getAgentId());
         }
 
         if (message.getAgentComponentType() != null) {
-            map.put("agent_component_type", message.getAgentComponentType().name());
+            map.put("agentComponentType", message.getAgentComponentType().name());
         }
 
         if (message.getDataOpType() != null) {
-            map.put("data_op_type", message.getDataOpType().name());
+            map.put("dataOpType", message.getDataOpType().name());
         }
 
         if (message.getTs() != null) {
@@ -104,11 +101,11 @@ public class JsonMessageConverter {
         // 复杂对象转为JSON字符串
         try {
             if (message.getRequestParams() != null) {
-                map.put("request_params", objectMapper.writeValueAsString(message.getRequestParams()));
+                map.put("requestParams", objectMapper.writeValueAsString(message.getRequestParams()));
             }
 
             if (message.getPrimaryKeyColumns() != null) {
-                map.put("primary_key_columns", objectMapper.writeValueAsString(message.getPrimaryKeyColumns()));
+                map.put("primaryKeyColumns", objectMapper.writeValueAsString(message.getPrimaryKeyColumns()));
             }
 
             if (message.getData() != null) {

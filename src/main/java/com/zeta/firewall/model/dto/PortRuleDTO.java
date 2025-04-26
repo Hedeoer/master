@@ -17,9 +17,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @ApiModel(description = "端口规则DTO")
 public class PortRuleDTO {
-    
+
     @ApiModelProperty(value = "规则ID")
     private Long id;
+
+    @ApiModelProperty(value = "agent节点唯一标识id")
+    private String nodeId;
 
     @ApiModelProperty(value = "协议(TCP/UDP)")
     private String protocol;
@@ -30,8 +33,11 @@ public class PortRuleDTO {
     @ApiModelProperty(value = "策略(accept/reject)")
     private String strategy;
 
+    @ApiModelProperty(value = "源地址类型，any 或者 specific")
+    private String sourceType;
+
     @ApiModelProperty(value = "源地址")
-    private String address;
+    private String sourceAddress;
 
     @ApiModelProperty(value = "描述信息")
     private String description;
@@ -59,12 +65,20 @@ public class PortRuleDTO {
             return null;
         }
 
+        String sourceType = (entity.getSourceRule() != null
+                && entity.getSourceRule().getSource() != null
+                && !entity.getSourceRule().getSource().equals("All IPs allowed") ) ?  "specific" : "any";
+
+        String sourceAddress = sourceType.equals("specific") ? entity.getSourceRule().getSource() : "";
+
         return PortRuleDTO.builder()
                 .id(entity.getId())
+                .nodeId(entity.getAgentId())
                 .protocol(entity.getProtocol().toUpperCase())
                 .port(entity.getPort())
                 .strategy(entity.getPolicy() != null && entity.getPolicy() ? "accept" : "reject")
-                .address(entity.getSourceRule() != null ? entity.getSourceRule().getSource() : "Anywhere")
+                .sourceType(sourceType)
+                .sourceAddress(sourceAddress)
                 .description(entity.getDescriptor())
                 .usedStatus(entity.getUsing() != null && entity.getUsing() ? "inUsed" : "notUsed")
                 .zone(entity.getZone())
@@ -81,23 +95,29 @@ public class PortRuleDTO {
     public com.zeta.firewall.model.entity.PortRule toEntity() {
         com.zeta.firewall.model.entity.PortRule entity = new com.zeta.firewall.model.entity.PortRule();
         entity.setId(this.id);
-        entity.setProtocol(this.protocol.toLowerCase());
+
+        // 处理可能为null的字符串字段
+        if (this.protocol != null) {
+            entity.setProtocol(this.protocol.toLowerCase());
+        }
         entity.setPort(this.port);
         entity.setPolicy("accept".equalsIgnoreCase(this.strategy));
-        
+
         // 设置源地址规则
-        if (!"Anywhere".equals(this.address)) {
+        if (this.sourceType != null && !"any".equals(this.sourceType)) {
             com.zeta.firewall.model.entity.SourceRule sourceRule = new com.zeta.firewall.model.entity.SourceRule();
-            sourceRule.setSource(this.address);
+            sourceRule.setSource(this.sourceAddress);
             entity.setSourceRule(sourceRule);
         }
-        
+
         entity.setDescriptor(this.description);
         entity.setUsing("inUsed".equalsIgnoreCase(this.usedStatus));
         entity.setZone(this.zone);
         entity.setFamily(this.family);
-        entity.setPermanent(this.permanent);
-        
+        // Handle null permanent value
+        entity.setPermanent(this.permanent != null ? this.permanent : false);
+        entity.setAgentId(this.nodeId);
+
         return entity;
     }
 }

@@ -6,12 +6,32 @@ import com.zeta.firewall.model.entity.PortRule;
 import java.util.List;
 
 public interface PortRuleService extends IService<PortRule> {
+    
     /**
-     * 获取指定节点的端口规则列表
-     *
+     * 根据nodeId查询端口规则
+     * 如果数据库中不存在，则从远程获取并保存
      * @param nodeId 节点ID
      * @return 端口规则列表
      */
     List<PortRule> getPortRulesByNodeId(String nodeId);
 
+    /**
+     * 从数据库查询端口规则
+     * @param nodeId 节点ID
+     * @return 端口规则列表
+     */
+    List<PortRule> queryPortRulesByNodeId(String nodeId);
+
+    /**
+     * 批量保存或更新端口规则
+     * @param portRules 端口规则列表
+     */
+    void saveOrUpdatePortRules(List<PortRule> portRules);
+
+    /**
+     * 添加端口规则
+     * @param portRule 端口规则对象
+     * @return 添加结果 true:成功 false:失败
+     */
+    Boolean addPortRule(PortRule portRule);
 }

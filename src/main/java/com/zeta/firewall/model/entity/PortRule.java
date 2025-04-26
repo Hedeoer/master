@@ -16,15 +16,19 @@ import java.util.Objects;
  */
 @Getter
 @Setter
+@ToString(callSuper = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-@TableName("firewall_port_rule")
+// 有一个使用了自定义 TypeHandler 的字段 private SourceRule sourceRule
+//如果 autoResultMap = false（默认值），MyBatis-Plus 不会自动构建 ResultMap，可能导致类型转换失败
+@TableName(value = "firewall_port_rule", autoResultMap = true)
 public class PortRule extends AbstractFirewallRule {
 
+    // 使用数据表的自增id
     @TableId(value = "id", type = IdType.AUTO)
-    private Long id;
+    protected Long id;
 
     private String family;    // ip type (ipv4 ,ipv6)
     private String port;      // 端口号或范围 (如 "80" 或 "1024-2048")
@@ -37,7 +41,7 @@ public class PortRule extends AbstractFirewallRule {
     private String descriptor; //端口描述信息
 
     /**
-     * 对象比较只包含 port 和 protocol
+     * 对象比较只包含 port、protocol 和父类属性
      * @param o
      * @return
      */
@@ -55,27 +59,12 @@ public class PortRule extends AbstractFirewallRule {
     }
 
     @Override
-    public String toString() {
-        return "PortRule{" +
-                "permanent=" + permanent +
-                ", type=" + type +
-                ", zone='" + zone + '\'' +
-                ", descriptor='" + descriptor + '\'' +
-                ", sourceRule=" + sourceRule +
-                ", policy=" + policy +
-                ", using=" + using +
-                ", protocol='" + protocol + '\'' +
-                ", port='" + port + '\'' +
-                ", family='" + family + '\'' +
-                '}';
-    }
-
-    @Override
     public Map<String, Object> toDBusParams() {
         Map<String, Object> params = new HashMap<>();
         params.put("zone", zone);
         params.put("port", port);
         params.put("protocol", protocol);
+        params.put("agentId", agentId);
         return params;
     }
 }
