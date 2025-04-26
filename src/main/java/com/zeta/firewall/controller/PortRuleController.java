@@ -1,5 +1,6 @@
 package com.zeta.firewall.controller;
 
+import com.zeta.firewall.model.dto.DeletePortRulesRequest;
 import com.zeta.firewall.model.dto.PortRuleDTO;
 import com.zeta.firewall.model.entity.PortRule;
 import com.zeta.firewall.service.PortRuleService;
@@ -83,6 +84,33 @@ public class PortRuleController {
         } catch (Exception e) {
             log.error("Failed to add port rule for node {}", agentId, e);
             return ApiResult.fail("添加端口规则失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除端口规则
+     *
+     * @param request 删除请求对象
+     * @return 删除结果
+     */
+    @ApiOperation(value = "删除端口规则", notes = "删除指定节点的防火墙端口规则")
+    @PostMapping("/port-rules/delete")
+    public ApiResult<Boolean> deletePortRules(@RequestBody DeletePortRulesRequest request) {
+        try {
+            log.info("Deleting port rules for node {}: rule IDs {}", request.getNodeId(), request.getRuleIds());
+
+            // 调用服务层删除规则
+            Boolean result = portRuleService.deletePortRules(request.getNodeId(), request.getRuleIds());
+
+            if (result) {
+                return ApiResult.success("删除端口规则成功", true);
+            } else {
+                return ApiResult.fail("删除端口规则失败");
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to delete port rules for node {}", request.getNodeId(), e);
+            return ApiResult.fail("删除端口规则失败: " + e.getMessage());
         }
     }
 }

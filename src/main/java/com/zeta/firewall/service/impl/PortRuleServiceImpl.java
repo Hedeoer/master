@@ -195,4 +195,81 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
     private boolean isResponseSuccess(Map<Object, Object> value) {
         return value.containsKey("status") && value.get("status").equals("200");
     }
+
+    /**
+     * 删除端口规则
+     * @param nodeId 节点ID
+     * @param ruleIds 规则ID列表
+     * @return 删除结果 true:成功 false:失败
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean deletePortRules(String nodeId, List<Long> ruleIds) {
+        if (nodeId == null || ruleIds == null || ruleIds.isEmpty()) {
+            return false;
+        }
+
+        try {
+            // 1. 查询要删除的规则
+            List<PortRule> portRules = this.lambdaQuery()
+                    .eq(PortRule::getAgentId, nodeId)
+                    .in(PortRule::getId, ruleIds)
+                    .list();
+
+            if (portRules.isEmpty()) {
+                log.warn("No port rules found for deletion with nodeId: {} and ruleIds: {}", nodeId, ruleIds);
+                return false;
+            }
+
+            // 2. 构建删除命令消息
+            HashMap<String, String> map = new HashMap<>();
+            map.put("zoneName", "public"); // 默认使用public区域
+
+            List<String> primaryKeyColumns = List.of("port", "protocol");
+
+            RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
+                    .agentId(nodeId)
+                    .ts(System.currentTimeMillis() / 1000)
+                    .agentComponentType(RedisCommandMessage.ComponentType.FIREWALL)
+                    .dataOpType(RedisCommandMessage.OperationType.DELETE)
+                    .requestParams(map)
+                    .primaryKeyColumns(primaryKeyColumns)
+                    .data(portRules)
+                    .build();
+
+            // 3. 发送删除命令并获取响应
+            boolean success = sendRedisDeleteCommandAndGetResponse(nodeId, build);
+
+            // 4. 如果成功，则从数据库中删除
+            if (success) {
+                return this.removeByIds(ruleIds);
+            }
+
+            return false;
+        } catch (Exception e) {
+            log.error("Failed to delete port rules for node: {} with ruleIds: {}", nodeId, ruleIds, e);
+            return false;
+        }
+    }
+
+    /**
+     * 发送Redis命令并获取删除端口规则的响应
+     */
+    private boolean sendRedisDeleteCommandAndGetResponse(String nodeId, RedisCommandMessage<PortRule> build) {
+        String pubStreamkey = "pub:" + nodeId;
+        String subStreamkey = "sub:" + nodeId;
+        boolean success = false;
+
+        try {
+            Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
+            RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+
+            return isResponseSuccess(value);
+
+        } catch (Exception e) {
+            log.error("Failed to delete port rules for node: {}", nodeId, e);
+            return success;
+        }
+    }
 }

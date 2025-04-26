@@ -6,7 +6,7 @@ import com.zeta.firewall.model.entity.PortRule;
 import java.util.List;
 
 public interface PortRuleService extends IService<PortRule> {
-    
+
     /**
      * 根据nodeId查询端口规则
      * 如果数据库中不存在，则从远程获取并保存
@@ -34,4 +34,12 @@ public interface PortRuleService extends IService<PortRule> {
      * @return 添加结果 true:成功 false:失败
      */
     Boolean addPortRule(PortRule portRule);
+
+    /**
+     * 删除端口规则
+     * @param nodeId 节点ID
+     * @param ruleIds 规则ID列表
+     * @return 删除结果 true:成功 false:失败
+     */
+    Boolean deletePortRules(String nodeId, List<Long> ruleIds);
 }
