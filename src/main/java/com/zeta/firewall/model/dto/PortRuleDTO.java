@@ -1,5 +1,7 @@
 package com.zeta.firewall.model.dto;
 
+import com.zeta.firewall.validation.annotation.ValidSourceAddress;
+import com.zeta.firewall.validation.annotation.ValidSourceType;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;
@@ -30,13 +32,15 @@ public class PortRuleDTO {
     @ApiModelProperty(value = "端口号或范围")
     private String port;
 
-    @ApiModelProperty(value = "策略(accept/reject)")
+    @ApiModelProperty(value = "策略(accept/drop)")
     private String strategy;
 
     @ApiModelProperty(value = "源地址类型，any 或者 specific")
+    @ValidSourceType
     private String sourceType;
 
     @ApiModelProperty(value = "源地址")
+    @ValidSourceAddress
     private String sourceAddress;
 
     @ApiModelProperty(value = "描述信息")
@@ -67,7 +71,7 @@ public class PortRuleDTO {
 
         String sourceType = (entity.getSourceRule() != null
                 && entity.getSourceRule().getSource() != null
-                && !entity.getSourceRule().getSource().equals("All IPs allowed") ) ?  "specific" : "any";
+                && !entity.getSourceRule().getSource().equals("0.0.0.0") ) ?  "specific" : "any";
 
         String sourceAddress = sourceType.equals("specific") ? entity.getSourceRule().getSource() : "";
 
@@ -76,7 +80,7 @@ public class PortRuleDTO {
                 .nodeId(entity.getAgentId())
                 .protocol(entity.getProtocol().toUpperCase())
                 .port(entity.getPort())
-                .strategy(entity.getPolicy() != null && entity.getPolicy() ? "accept" : "reject")
+                .strategy(entity.getPolicy() != null && entity.getPolicy() ? "accept" : "drop")
                 .sourceType(sourceType)
                 .sourceAddress(sourceAddress)
                 .description(entity.getDescriptor())
@@ -104,9 +108,14 @@ public class PortRuleDTO {
         entity.setPolicy("accept".equalsIgnoreCase(this.strategy));
 
         // 设置源地址规则
-        if (this.sourceType != null && !"any".equals(this.sourceType)) {
+        if (this.sourceType != null) {
             com.zeta.firewall.model.entity.SourceRule sourceRule = new com.zeta.firewall.model.entity.SourceRule();
-            sourceRule.setSource(this.sourceAddress);
+
+            if (!"any".equals(this.sourceType)) {
+                sourceRule.setSource(this.sourceAddress);
+            }else {
+                sourceRule.setSource("0.0.0.0");
+            }
             entity.setSourceRule(sourceRule);
         }
 

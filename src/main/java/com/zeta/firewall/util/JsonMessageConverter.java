@@ -87,6 +87,42 @@ public class JsonMessageConverter {
      * 将RedisCommandMessage对象转化为map<String,String>
      * 将复杂对象序列化为JSON字符串
      *
+     * 传递固定消息格式：当redis 发布更新命令时，需要的将如下的json按照各个属性转化为map然后发送
+     * {
+     *    "agentId": "test",
+     *    "agentComponentType": "firewall",
+     *    "dataOpType": "update",
+     *    "requestParams": "",
+     *    "ts": 1477053217,
+     *    "primaryKeyColumns": ["port", "protocol"],
+     *    "data": [
+     *       {
+     *          "zone": "public",
+     *          "type": "PORT",
+     *          "permanent": true,
+     *          "family": "ipv4",
+     *          "port": "6379",
+     *          "protocol": "udp",
+     *          "using": true,
+     *          "policy": true,
+     *          "sourceRule": {"source": "0.0.0.0"},
+     *          "descriptor": "All IPs allowed"
+     *       }
+     *    ],
+     *    "old": {
+     *       "zone": "public",
+     *       "type": "PORT",
+     *       "permanent": true,
+     *       "family": "ipv4",
+     *       "port": "6379",
+     *       "protocol": "tcp",
+     *       "using": true,
+     *       "policy": false,
+     *       "sourceRule": {"source": "0.0.0.0"},
+     *       "descriptor": "All IPs allowed"
+     *    }
+     * }
+     *
      * @param message RedisCommandMessage对象
      * @return 字符串键值对的Map
      */
@@ -107,6 +143,7 @@ public class JsonMessageConverter {
         }
 
         if (message.getDataOpType() != null) {
+            // 将枚举类型转换为字符串 QUERY ==》 query
             map.put("dataOpType", message.getDataOpType().name());
         }
 

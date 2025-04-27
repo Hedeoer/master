@@ -47,6 +47,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
         // 2. 通过Redis Stream查询
         // 构建消息体
         HashMap<String, String> map = new HashMap<>();
+        // todo 默认使用public区域
         map.put("zoneName", "public");
 
         List<String> primaryKeyColumns = List.of("port", "protocol");
@@ -131,7 +132,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
         // 如果成功，则保存到数据库
         // 失败则返回失败信息
-        if (success && this.saveOrUpdate(portRule)) {
+        if (success && this.save(portRule)) {
             res = true;
         }
 
@@ -269,6 +270,89 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
         } catch (Exception e) {
             log.error("Failed to delete port rules for node: {}", nodeId, e);
+            return success;
+        }
+    }
+
+    /**
+     * 更新端口规则
+     * @param ruleId 规则ID
+     * @param portRule 更新后的端口规则对象
+     * @return 更新结果 true:成功 false:失败
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean updatePortRule(Long ruleId, PortRule portRule) {
+        if (ruleId == null || portRule == null) {
+            return false;
+        }
+
+        try {
+            // 1. 查询要更新的规则
+            PortRule oldRule = this.getById(ruleId);
+            if (oldRule == null) {
+                log.warn("No port rule found for update with ruleId: {}", ruleId);
+                return false;
+            }
+
+            // 2. 设置规则ID和节点ID
+            portRule.setId(ruleId);
+            String nodeId = oldRule.getAgentId();
+            portRule.setAgentId(nodeId);
+
+            // 3. 构建更新命令消息
+            HashMap<String, String> map = new HashMap<>();
+            map.put("zoneName", portRule.getZone());
+            map.put("policy", String.valueOf(portRule.getPolicy()));
+
+            List<String> primaryKeyColumns = List.of("port", "protocol");
+
+            ArrayList<PortRule> data = new ArrayList<>();
+            data.add(portRule);
+
+            RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
+                    .agentId(nodeId)
+                    .ts(System.currentTimeMillis() / 1000)
+                    .agentComponentType(RedisCommandMessage.ComponentType.FIREWALL)
+                    .dataOpType(RedisCommandMessage.OperationType.UPDATE)
+                    .requestParams(map)
+                    .primaryKeyColumns(primaryKeyColumns)
+                    .data(data)
+                    .old(oldRule)
+                    .build();
+
+            // 4. 发送更新命令并获取响应
+            boolean success = sendRedisUpdateCommandAndGetResponse(nodeId, build);
+
+            // 5. 如果成功，则更新数据库
+            if (success) {
+                return this.updateById(portRule);
+            }
+
+            return false;
+        } catch (Exception e) {
+            log.error("Failed to update port rule with ruleId: {}", ruleId, e);
+            return false;
+        }
+    }
+
+    /**
+     * 发送Redis命令并获取更新端口规则的响应
+     */
+    private boolean sendRedisUpdateCommandAndGetResponse(String nodeId, RedisCommandMessage<PortRule> build) {
+        String pubStreamkey = "pub:" + nodeId;
+        String subStreamkey = "sub:" + nodeId;
+        boolean success = false;
+
+        try {
+            Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
+            RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+
+            return isResponseSuccess(value);
+
+        } catch (Exception e) {
+            log.error("Failed to update port rule for node: {}", nodeId, e);
             return success;
         }
     }

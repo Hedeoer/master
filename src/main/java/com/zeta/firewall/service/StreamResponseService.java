@@ -41,7 +41,7 @@ public class StreamResponseService {
 
     /**
      * 根据指定的 nodeId、Stream key 及 recordId 获取对应的消息内容。
-     * 如果结果为空，则会自动重试（共4次），每次间隔2秒。
+     * 如果结果为空，则会自动重试（共6次），每次间隔2秒。
      *
      * @param nodeId       节点ID，用于拼接stream的主key
      * @param subStreamkey Stream的实际二级Key
@@ -51,7 +51,7 @@ public class StreamResponseService {
      */
     @Retryable(
             value = EmptyResultException.class,
-            maxAttempts = 4,
+            maxAttempts = 6,
             backoff = @Backoff(delay = 2000)
     )
     public Map<Object, Object> getResponseEntry(String nodeId, String subStreamkey, RecordId recordId) {

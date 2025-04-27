@@ -113,4 +113,40 @@ public class PortRuleController {
             return ApiResult.fail("删除端口规则失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 更新端口规则
+     *
+     * @param ruleId 规则ID
+     * @param portRuleDTO 端口规则DTO
+     * @return 更新结果
+     */
+    @ApiOperation(value = "更新端口规则", notes = "更新指定节点的防火墙端口规则")
+    @PutMapping("/port-rule/{ruleId}")
+    public ApiResult<Boolean> updatePortRuleApi(
+            @ApiParam(value = "规则ID", required = true, example = "1")
+            @PathVariable Long ruleId,
+            @ApiParam(value = "端口规则信息", required = true)
+            @RequestBody PortRuleDTO portRuleDTO) {
+        try {
+            log.info("Updating port rule with ID {}: {}", ruleId, portRuleDTO);
+
+            // 1. 转换DTO为实体
+            PortRule portRule = portRuleDTO.toEntity();
+
+            // 2. 调用服务层更新规则
+            // todo 更新时源地址未能更新
+            Boolean result = portRuleService.updatePortRule(ruleId, portRule);
+
+            if (result) {
+                return ApiResult.success("更新成功", true);
+            } else {
+                return ApiResult.fail("更新端口规则失败");
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to update port rule with ID {}", ruleId, e);
+            return ApiResult.fail("更新端口规则失败: " + e.getMessage());
+        }
+    }
 }

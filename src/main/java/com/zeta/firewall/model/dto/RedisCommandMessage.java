@@ -1,7 +1,6 @@
 package com.zeta.firewall.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.zeta.firewall.util.ComponentTypeDeserializer;
 import com.zeta.firewall.util.OperationTypeDeserializer;
@@ -22,29 +21,23 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 public class RedisCommandMessage<T> {
-    @JsonProperty("agent_id")
+    
     private String agentId;
-
-    @JsonProperty("agent_component_type")
+    
     @JsonDeserialize(using = ComponentTypeDeserializer.class)
     private ComponentType agentComponentType;
 
-    @JsonProperty("data_op_type")
     @JsonDeserialize(using = OperationTypeDeserializer.class)
     private OperationType dataOpType;
 
-    @JsonProperty("request_params")
     private Map<String, String> requestParams;
 
     private Long ts;
 
-    @JsonProperty("primary_key_columns")
     private List<String> primaryKeyColumns;
 
-    @JsonProperty("data")
     private List<T> data;
 
-    @JsonProperty("old")
     private T old;
 
     // 操作类型枚举

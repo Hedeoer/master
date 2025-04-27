@@ -42,4 +42,12 @@ public interface PortRuleService extends IService<PortRule> {
      * @return 删除结果 true:成功 false:失败
      */
     Boolean deletePortRules(String nodeId, List<Long> ruleIds);
+
+    /**
+     * 更新端口规则
+     * @param ruleId 规则ID
+     * @param portRule 更新后的端口规则对象
+     * @return 更新结果 true:成功 false:失败
+     */
+    Boolean updatePortRule(Long ruleId, PortRule portRule);
 }
