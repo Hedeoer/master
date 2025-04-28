@@ -151,7 +151,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
             Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
             RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
-            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey,pubStreamkey, recordId);
 
             return isResponseSuccess(value);
 
@@ -172,7 +172,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
             Map<String, String> messageMap = JsonMessageConverter.beanToMap(commandMap);
             RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
-            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey,pubStreamkey, recordId);
 
             // 检查响应状态
             if (!isResponseSuccess(value)) {
@@ -264,7 +264,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
         try {
             Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
             RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
-            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, pubStreamkey, recordId);
 
             return isResponseSuccess(value);
 
@@ -347,7 +347,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
         try {
             Map<String, String> messageMap = JsonMessageConverter.beanToMap(build);
             RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
-            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, pubStreamkey, recordId);
 
             return isResponseSuccess(value);
 

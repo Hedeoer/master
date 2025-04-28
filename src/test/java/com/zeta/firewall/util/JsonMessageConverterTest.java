@@ -1,5 +1,7 @@
 package com.zeta.firewall.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeta.firewall.model.dto.RedisCommandMessage;
 import com.zeta.firewall.model.entity.PortRule;
 import com.zeta.firewall.model.entity.RuleType;
@@ -289,4 +291,16 @@ class JsonMessageConverterTest {
         assertNull(result.get("data"));
         assertNull(result.get("old"));
     }
+
+   @Test
+    void objectMapperWriteStringListAsJson(){
+
+       List<String> stringList = List.of("232", "2325", "75432");
+       try {
+           String res = new ObjectMapper().writeValueAsString(stringList);
+           System.out.println(res);
+       } catch (JsonProcessingException e) {
+           throw new RuntimeException(e);
+       }
+   }
 }

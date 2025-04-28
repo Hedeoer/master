@@ -463,7 +463,7 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
             RecordId recordId = streamProducer.publishMessage(pubStreamkey, messageMap);
 
             // 获取响应，重试的方式获取响应，减少因为从节点响应不及时导致的失败
-            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, recordId);
+            Map<Object, Object> value = streamResponseService.getResponseEntry(nodeId, subStreamkey, pubStreamkey, recordId);
 
             // 判断是否刷新成功
             // 判断是否刷新成功，agent节点会向 名为"pub:" + nodeId 的StreamKey发送消息id为recordId的消息，其中value中包含status字段，如果status为200则刷新成功

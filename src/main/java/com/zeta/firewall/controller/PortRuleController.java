@@ -2,10 +2,10 @@ package com.zeta.firewall.controller;
 
 import com.zeta.firewall.model.dto.DeletePortRulesRequest;
 import com.zeta.firewall.model.dto.PortRuleDTO;
+import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.service.PortInfoService;
 import com.zeta.firewall.service.PortRuleService;
-import com.zeta.firewall.service.StreamResponseService;
-import com.zeta.firewall.subscirbe.StreamProducer;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -27,8 +27,7 @@ import java.util.stream.Collectors;
 public class PortRuleController {
 
     private final PortRuleService portRuleService;
-    private final StreamProducer streamProducer;
-    private final StreamResponseService streamResponseService;
+    private final PortInfoService portInfoService;
 
     /**
      * 获取指定节点的端口规则列表
@@ -44,10 +43,11 @@ public class PortRuleController {
 
         // 调用服务层获取规则列表
         List<PortRule> rules = portRuleService.getPortRulesByNodeId(nodeId);
+        Map<String, List<PortInfo>> portInfosByPortRules = portInfoService.getPortInfosByPortRules(rules, nodeId);
 
         // 转换为DTO列表
         List<PortRuleDTO> dtoList = rules.stream()
-                .map(PortRuleDTO::fromEntity)
+                .map(portRule -> PortRuleDTO.fromEntity(portRule, portInfosByPortRules.get(portRule.getId() + "")))
                 .collect(Collectors.toList());
 
         // 返回成功结果

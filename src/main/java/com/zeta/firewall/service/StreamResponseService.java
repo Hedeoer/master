@@ -45,6 +45,7 @@ public class StreamResponseService {
      *
      * @param nodeId       节点ID，用于拼接stream的主key
      * @param subStreamkey Stream的实际二级Key
+     * @param pubStreamKey 用于构建消费组名字和消费者名称
      * @param recordId     要读取的消息的唯一ID
      * @return 消息内容，key-value 形式
      * @throws EmptyResultException 如果未获取到合法结果，将触发异常并进行重试
@@ -54,11 +55,11 @@ public class StreamResponseService {
             maxAttempts = 6,
             backoff = @Backoff(delay = 2000)
     )
-    public Map<Object, Object> getResponseEntry(String nodeId, String subStreamkey, RecordId recordId) {
+    public Map<Object, Object> getResponseEntry(String nodeId, String subStreamkey, String pubStreamKey,RecordId recordId) {
         log.info("Attempting to get response for recordId: {}, attempt: {}",
                 recordId, RetrySynchronizationManager.getContext().getRetryCount());
 
-        String pubStreamKey = "pub:" + nodeId;
+
         String groupName = "firewall_" + pubStreamKey + "_group";
         String consumerName = groupName + "_consumer";
         StreamConsumer streamConsumer = new StreamConsumer(redisConnectionFactory, subStreamkey, groupName, consumerName);

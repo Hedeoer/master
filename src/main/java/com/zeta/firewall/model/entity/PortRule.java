@@ -32,7 +32,7 @@ public class PortRule extends AbstractFirewallRule {
 
     private String family;    // ip type (ipv4 ,ipv6)
     private String port;      // 端口号或范围 (如 "80" 或 "1024-2048")
-    private String protocol;  // 协议 (tcp 或 udp)
+    private String protocol;  // 协议 (tcp 或 udp 或者 tcp/udp)
     @TableField("`using`")
     private Boolean using;    // 端口使用状态 （已使用，未使用）
     private Boolean policy;   // 端口策略（允许，拒绝）

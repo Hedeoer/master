@@ -55,6 +55,7 @@ public class RedisCommandMessage<T> {
     public enum ComponentType {
         @JsonEnumDefaultValue
         UNKNOWN,
+        PORT,
         FIREWALL
         // 其他组件类型...
     }

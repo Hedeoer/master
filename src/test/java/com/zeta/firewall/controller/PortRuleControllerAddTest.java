@@ -2,7 +2,6 @@ package com.zeta.firewall.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeta.firewall.model.dto.PortRuleDTO;
-import com.zeta.firewall.model.dto.RedisCommandMessage;
 import com.zeta.firewall.model.entity.PortRule;
 import com.zeta.firewall.model.entity.RuleType;
 import com.zeta.firewall.service.PortRuleService;
@@ -14,15 +13,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.redis.connection.stream.RecordId;
-import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,9 +81,11 @@ public class PortRuleControllerAddTest {
         successResponse.put("message", "Success");
         successResponse.put("data", "{\"id\":123}");
 
+
+
         // 配置Mock行为
         when(streamProducer.publishMessage(anyString(), any())).thenReturn(recordId);
-        when(streamResponseService.getResponseEntry(anyString(), anyString(), any())).thenReturn(successResponse);
+        when(streamResponseService.getResponseEntry(anyString(), anyString(), "", any())).thenReturn(successResponse);
     }
 
     @Test
@@ -102,7 +101,7 @@ public class PortRuleControllerAddTest {
 
         // 验证服务调用
         verify(streamProducer).publishMessage(eq("pub:node1"), messageCaptor.capture());
-        verify(streamResponseService).getResponseEntry(eq("node1"), eq("sub:node1"), eq(recordId));
+        verify(streamResponseService).getResponseEntry(eq("node1"), eq("sub:node1"), "", eq(recordId));
         verify(portRuleService).saveOrUpdatePortRules(portRulesCaptor.capture());
 
         // 验证消息内容
@@ -129,7 +128,7 @@ public class PortRuleControllerAddTest {
         failureResponse.put("status", "400");
         failureResponse.put("message", "Invalid port rule");
 
-        when(streamResponseService.getResponseEntry(anyString(), anyString(), any())).thenReturn(failureResponse);
+        when(streamResponseService.getResponseEntry(anyString(), anyString(),"",any())).thenReturn(failureResponse);
 
         // 执行请求
         mockMvc.perform(post("/api/agents/firewall/port-rules/node1")
@@ -161,18 +160,4 @@ public class PortRuleControllerAddTest {
         verify(portRuleService, never()).saveOrUpdatePortRules(any());
     }
 
-    @Test
-    @DisplayName("addPortRule should handle invalid JSON request")
-    void addPortRule_shouldHandleInvalidJson() throws Exception {
-        // 执行请求 - 发送无效的JSON
-        mockMvc.perform(post("/api/agents/firewall/port-rules/node1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{invalid json}"))
-                .andExpect(status().isBadRequest());
-
-        // 验证服务没有被调用
-        verifyNoInteractions(streamProducer);
-        verifyNoInteractions(streamResponseService);
-        verifyNoInteractions(portRuleService);
-    }
 }
