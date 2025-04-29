@@ -2,10 +2,12 @@ package com.zeta.firewall.util;
 
 import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class PortRuleUtils {
     public static List<PortInfo> expandAndDeduplicatePortRules(List<PortRule> portRules) {
         // 展开所有PortRule
@@ -112,7 +114,11 @@ public class PortRuleUtils {
             ArrayList<PortInfo> portInfos = new ArrayList<>();
 
             for (PortInfo dbPortInfo : dbPortInfos) {
-                boolean isEqualProtocol = portRule.getProtocol().equals(dbPortInfo.getProtocol());
+
+                // 使用contains处理端口规则中协议为tcp/udp的情况
+                boolean isEqualProtocol = portRule.getProtocol().toUpperCase()
+                        .contains(dbPortInfo.getProtocol().toUpperCase());
+
                 boolean isEqualAgentId = portRule.getAgentId().equals(dbPortInfo.getAgentId());
 
                 boolean isEqualPort;
@@ -139,5 +145,95 @@ public class PortRuleUtils {
             map.put(portRuleId + "", portInfos);
         }
         return map;
+    }
+
+    /**
+     * portRules中端口展开和去重
+     * @param portRules 需要去重的端口规则列表
+     * @return 去重后的端口列表
+     */
+    public static List<String> extractUniquePortsFromRules(List<PortRule> portRules) {
+        if (portRules == null || portRules.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return portRules.stream()
+            .map(PortRule::getPort)
+            .flatMap(portStr -> {
+                Set<String> ports = new HashSet<>();
+                
+                String[] portParts = portStr.split(",");
+                for (String part : portParts) {
+                    part = part.trim();
+                    try {
+                        if (part.contains("-")) {
+                            String[] range = part.split("-");
+                            int start = Integer.parseInt(range[0].trim());
+                            int end = Integer.parseInt(range[1].trim());
+                            
+                            // 验证端口范围
+                            if (start < 1 || end > 65535 || start > end) {
+                                log.warn("Invalid port range: {}", part);
+                                continue;
+                            }
+                            
+                            for (int i = start; i <= end; i++) {
+                                ports.add(String.valueOf(i));
+                            }
+                        } else {
+                            int port = Integer.parseInt(part);
+                            if (port >= 1 && port <= 65535) {
+                                ports.add(part);
+                            } else {
+                                log.warn("Port number out of range: {}", port);
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        log.warn("Invalid port format: {}", part);
+                    }
+                }
+                
+                return ports.stream();
+            })
+            .distinct()
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * 通过 portInfos 匹配 对应的 portRules
+     * @param portRules
+     * @param needMatchPortInfos
+     * @return 匹配上的 portRules，需要去重
+     */
+    public static List<PortRule> matchPortRulesByPortInfos(List<PortRule> portRules, List<PortInfo> needMatchPortInfos) {
+        HashSet<PortRule> result = new HashSet<>();
+
+        for (PortRule portRule : portRules) {
+            for (PortInfo needMatchPortInfo : needMatchPortInfos) {
+                boolean equalsAgentId = portRule.getAgentId().equals(needMatchPortInfo.getAgentId());
+                boolean equalsProtocol = portRule.getProtocol().equalsIgnoreCase(needMatchPortInfo.getProtocol());
+
+                boolean equalsPort;
+                String port = portRule.getPort();
+                Integer portNumberFromPortInfo = needMatchPortInfo.getPortNumber();
+                if (port.contains(",")) {
+                    equalsPort = portRule.getPort().contains(portNumberFromPortInfo + "");
+
+                } else if (port.contains("-")) {
+                    String[] startAndEndPort = port.split("-");
+                    int start = Integer.parseInt(startAndEndPort[0].trim());
+                    int end = Integer.parseInt(startAndEndPort[1].trim());
+                    equalsPort = portNumberFromPortInfo >= start && portNumberFromPortInfo <= end;
+
+                }else {
+                    equalsPort = portRule.getPort().equals(portNumberFromPortInfo + "");
+                }
+
+                if (equalsAgentId && equalsProtocol && equalsPort) {
+                    result.add(portRule);
+                }
+            }
+        }
+        return new ArrayList<>(result);
     }
 }

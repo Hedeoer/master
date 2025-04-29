@@ -49,7 +49,6 @@ public class PortRuleController {
         List<PortRuleDTO> dtoList = rules.stream()
                 .map(portRule -> PortRuleDTO.fromEntity(portRule, portInfosByPortRules.get(portRule.getId() + "")))
                 .collect(Collectors.toList());
-
         // 返回成功结果
         return ApiResult.success("获取端口规则成功", dtoList);
     }

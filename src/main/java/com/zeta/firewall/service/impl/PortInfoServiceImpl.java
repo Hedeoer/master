@@ -20,10 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.zetaframework.core.utils.JSONUtil;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -157,14 +154,6 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
         }
     }
 
-    @Override
-    public Boolean updatePortInfoPeriod(List<PortInfo> portInfos, Integer period) {
-        // 检查agent节点心跳是否正常
-        // 正常，则发送redis命令获取端口使用情况
-
-        return false;
-    }
-
     /**
      * 批量保存或更新端口信息
      * @param portInfos 端口信息列表
@@ -173,9 +162,16 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Boolean insertOrUpdateBatchPortInfos(List<PortInfo> portInfos) {
-        if (portInfos == null || portInfos.isEmpty()) {
-            log.warn("Port info list is empty or null, nothing to save or update");
+
+        // null，无需更新，返回false
+        if (portInfos == null) {
+            log.warn("Port info list is  null, nothing to save or update");
             return false;
+        }
+        // 空列表，无需更新，返回true
+        if (portInfos.isEmpty()) {
+            log.warn("Port info list is empty , nothing to save or update");
+            return true;
         }
 
         // saveOrUpdateBatch 方法通过主键来判断是否为更新操作。如果表中定义了唯一键；将要执行saveOrUpdateBatch
@@ -196,7 +192,91 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
         return  this.saveOrUpdateBatch(portInfos);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public List<PortInfo> updatePortInfoByPortRules(List<PortRule> portRules, String nodeId) {
+
+        // 存储更新后的最新端口使用信息，默认为空列表
+        List<PortInfo> result = new ArrayList<>();
+
+        HashMap<String, String> map = new HashMap<>();
+        map.put("portType", "RANGE_PORT_COMMA");
+
+        // 去重端口号
+        List<String> uniquePorts = PortRuleUtils.extractUniquePortsFromRules(portRules);
+
+        try {
+            map.put("port", mapper.writeValueAsString(uniquePorts));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+        List<String> primaryKeyColumns = List.of("agentId", "protocol","portNumber");
+
+        RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
+                .agentId(nodeId)
+                .ts(System.currentTimeMillis() / 1000)
+                .agentComponentType(RedisCommandMessage.ComponentType.PORT)
+                .dataOpType(RedisCommandMessage.OperationType.QUERY)
+                .requestParams(map)
+                .primaryKeyColumns(primaryKeyColumns)
+                .build();
+
+
+        // 查询端口使用情况命令如何判断是否成功？
+        List<PortInfo> portInfosFromAgent  = sendRedisQueryCommandAndGetResponse(nodeId,build);
+
+        if (insertOrUpdateBatchPortInfos(portInfosFromAgent)) {
+            result = portInfosFromAgent;
+        }
+
+        return result;
+    }
+
     private boolean isResponseSuccess(Map<Object, Object> value) {
         return value.containsKey("status") && value.get("status").equals("200");
+    }
+
+    /**
+     * 删除数据库中与notInUsePortInfos列表中记录相匹配的端口信息
+     * 匹配条件：agentId、protocol和portNumber相同
+     *
+     * @param notInUsePortInfos 不再使用的端口信息列表
+     * @return 删除成功返回true，否则返回false
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public Boolean removePortInfosNotInUse(List<PortInfo> notInUsePortInfos) {
+        if (notInUsePortInfos == null || notInUsePortInfos.isEmpty()) {
+            return true; // 没有需要删除的记录，视为成功
+        }
+
+        try {
+            // 构建条件删除
+            QueryWrapper<PortInfo> queryWrapper = new QueryWrapper<>();
+
+            // 构建OR条件组合：(agentId=? AND protocol=? AND portNumber=?) OR (agentId=? AND protocol=? AND portNumber=?) ...
+            for (PortInfo portInfo : notInUsePortInfos) {
+                queryWrapper.or(wrapper -> wrapper
+                    .eq("agent_id", portInfo.getAgentId())
+                    .eq("protocol", portInfo.getProtocol())
+                    .eq("port_number", portInfo.getPortNumber()));
+            }
+
+            // 执行删除操作
+            int deletedCount = baseMapper.delete(queryWrapper);
+            log.info("Removed {} port infos that are no longer in use", deletedCount);
+
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to remove port infos", e);
+            return false;
+        }
+    }
+
+    @Override
+    public List<PortInfo> queryAllPortInfosDB() {
+        return this.getBaseMapper().selectList(null);
+
     }
 }

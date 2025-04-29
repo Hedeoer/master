@@ -142,4 +142,8 @@ public class JSONUtil {
         return null;
     }
 
+    public static ObjectMapper getObjectMapper() {
+        return objectMapper;
+    }
+
 }

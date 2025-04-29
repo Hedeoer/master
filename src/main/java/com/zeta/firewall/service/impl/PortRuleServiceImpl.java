@@ -1,10 +1,13 @@
 package com.zeta.firewall.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.zeta.firewall.dao.PortRuleMapper;
 import com.zeta.firewall.model.dto.RedisCommandMessage;
+import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.service.PortInfoService;
 import com.zeta.firewall.service.PortRuleService;
 import com.zeta.firewall.service.StreamResponseService;
 import com.zeta.firewall.subscirbe.StreamProducer;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.zetaframework.core.utils.JSONUtil;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 端口规则服务实现类
@@ -26,10 +30,12 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
     private final StreamResponseService streamResponseService;
     private final StreamProducer streamProducer;
+    private final PortInfoService portInfoService;
 
-    public PortRuleServiceImpl(StreamResponseService streamResponseService, StreamProducer streamProducer) {
+    public PortRuleServiceImpl(StreamResponseService streamResponseService, StreamProducer streamProducer, PortInfoService portInfoService) {
         this.streamResponseService = streamResponseService;
         this.streamProducer = streamProducer;
+        this.portInfoService = portInfoService;
     }
 
     @Override
@@ -129,6 +135,12 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
         // 新增端口规则命令如何判断是否成功？
         boolean success  = sendRedisInsertCommandAndGetResponse(agentId,build);
+
+        // 更新端口的使用情况
+        List<PortInfo> portInfos = portInfoService.updatePortInfoByPortRules(List.of(portRule), agentId);
+        if (portInfos != null && !portInfos.isEmpty()) {
+            portRule.setUsing(true);
+        }
 
         // 如果成功，则保存到数据库
         // 失败则返回失败信息
@@ -326,6 +338,12 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
             // 5. 如果成功，则更新数据库
             if (success) {
+                // 需要更新端口规则对应的 端口使用情况
+                // 获取端口最新的使用情况
+                List<PortInfo> portInfos =  portInfoService.updatePortInfoByPortRules(List.of(portRule), nodeId);
+                // 更新字段Using
+                portRule.setUsing(portInfos != null && !portInfos.isEmpty());
+
                 return this.updateById(portRule);
             }
 
@@ -334,6 +352,49 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
             log.error("Failed to update port rule with ruleId: {}", ruleId, e);
             return false;
         }
+    }
+
+    /**
+     * UPDATE firewall_port_rule
+     * SET `using` = 0
+     * WHERE (agent_id, port, protocol) IN (
+     *       ('节点A', '8080', 'tcp'),
+     *       ('节点B', '8080', 'tcp'),
+     *       ('节点C', '3306', 'tcp')
+     * );
+     * @param portRules 需要更新的端口规则对象
+     * @return
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public Boolean updatePortRuleUsingToFalse(List<PortRule> portRules) {
+
+        if (portRules == null || portRules.isEmpty()) return true;
+
+        // 组建批量唯一标识
+        List<String> keys = portRules.stream()
+                .map(r -> r.getAgentId() + "|" + r.getPort() + "|" + r.getProtocol())
+                .collect(Collectors.toList());
+
+        UpdateWrapper<PortRule> wrapper = new UpdateWrapper<>();
+        wrapper.inSql("(agent_id, port, protocol)",
+                keys.stream()
+                        .map(k -> {
+                            String[] arr = k.split("\\|");
+                            return "('" + arr[0] + "', '" + arr[1] + "', '" + arr[2] + "')";
+                        })
+                        .collect(Collectors.joining(","))
+        );
+        wrapper.set("using", false);
+
+        int affected = this.baseMapper.update(null, wrapper);
+        // 可根据 affected 行数判定
+        return affected >= portRules.size();
+    }
+
+    @Override
+    public List<PortRule> queryAllPortRules() {
+        return this.getBaseMapper().selectList(null);
     }
 
     /**

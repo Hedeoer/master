@@ -2,6 +2,7 @@ package com.zeta.firewall.model.dto;
 
 import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.model.entity.RuleType;
 import com.zeta.firewall.validation.annotation.ValidSourceAddress;
 import com.zeta.firewall.validation.annotation.ValidSourceType;
 import io.swagger.annotations.ApiModel;
@@ -104,6 +105,7 @@ public class PortRuleDTO {
                 .sourceType(sourceType)
                 .sourceAddress(sourceAddress)
                 .description(entity.getDescriptor())
+//                .usedStatus(portInfos != null && !portInfos.isEmpty() ? "inUsed" : "notUsed")
                 .usedStatus(entity.getUsing() != null && entity.getUsing() ? "inUsed" : "notUsed")
                 .zone(entity.getZone())
                 .family(entity.getFamily())
@@ -145,6 +147,9 @@ public class PortRuleDTO {
         entity.setUsing("inUsed".equalsIgnoreCase(this.usedStatus));
         entity.setZone(this.zone);
         entity.setFamily(this.family);
+
+        entity.setType(RuleType.PORT);
+
         // Handle null permanent value
         entity.setPermanent(this.permanent != null ? this.permanent : false);
         entity.setAgentId(this.nodeId);

@@ -11,6 +11,7 @@ import org.zetaframework.core.validation.group.Update;
 import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * 包括id、create_time、create_by字段的表继承的基础实体
@@ -48,4 +49,18 @@ public class SuperEntity<T> implements Serializable {
     @TableField(value = CREATED_BY_COLUMN, fill = FieldFill.INSERT)
     protected T createdBy;
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SuperEntity<?> that = (SuperEntity<?>) o;
+        return Objects.equals(id, that.id) &&
+               Objects.equals(createTime, that.createTime) &&
+               Objects.equals(createdBy, that.createdBy);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, createTime, createdBy);
+    }
 }

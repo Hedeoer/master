@@ -29,3 +29,5 @@ CREATE TABLE `firewall_port_rule`
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = '防火墙端口规则表'
   ROW_FORMAT = DYNAMIC;
+
+update firewall_port_rule set `using` = false where agent_id = 'node1' and (port = '8080' or port = '8081') and (protocol like 'tcp' or protocol like  'udp' or protocol like 'tcp/udp');

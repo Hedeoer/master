@@ -10,7 +10,7 @@ zeta:
   # 操作日志配置
   log:
     # 记录用户操作日志
-    enabled: true
+    enabled: false
   # mybatis plus配置
   database:
     # 是否启用防止全表更新与删除插件 默认false

@@ -15,7 +15,7 @@ public interface PortInfoService {
      * 首次查询后的结果需要持久化到mysql，之后从mysql查询即可；
      *
      * 关于mysql中portInfo信息的更新时机：
-     * 1. portInfo有固定的更新频率 见updatePortInfoPeriod（）实现
+     * 1. portInfo有固定的更新频率 见 PortInfoPullService类实现
      * 1. 有新增端口规则时，直接发起redis 命令获取最新该条端口规则对应的端口使用信息
      * 2. 有更新端口规则时，直接发起redis 命令获取最新该条端口规则对应的端口使用信息
      *
@@ -30,13 +30,6 @@ public interface PortInfoService {
      */
     Map<String,List<PortInfo>> getPortInfosByPortRules(List<PortRule> portRules,String nodeId);
 
-    /**
-     * 周期性的更新端口使用信息
-     * @param portInfos 需要更新的端口信息列表
-     * @param  period 更新频率
-     * @return 全部更新成功返回 true； 其他情况返回 false
-     */
-    Boolean updatePortInfoPeriod(List<PortInfo> portInfos,Integer period);
 
     /**
      * 批量保存或更新端口信息
@@ -45,4 +38,26 @@ public interface PortInfoService {
      */
     Boolean insertOrUpdateBatchPortInfos(List<PortInfo> portInfos);
 
+    /**
+     *  更新portRules中涉及的端口使用信息
+     * @param portRules portRules
+     * @param nodeId nodeId
+     * @return 端口最新使用信息
+     */
+    List<PortInfo> updatePortInfoByPortRules(List<PortRule> portRules, String nodeId);
+
+    /**
+     * 删除数据库中与notInUsePortInfos列表中记录相匹配的端口信息
+     * 匹配条件：agentId、protocol和portNumber相同
+     *
+     * @param notInUsePortInfos 不再使用的端口信息列表
+     * @return 删除成功返回true，否则返回false
+     */
+    Boolean removePortInfosNotInUse(List<PortInfo> notInUsePortInfos);
+
+    /**
+     * 查询数据库中所有的端口信息
+     * @return 端口信息列表
+     */
+    List<PortInfo> queryAllPortInfosDB();
 }

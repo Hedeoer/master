@@ -49,5 +49,4 @@ public class Entity<T> extends SuperEntity<T> {
         this.updateTime = updateTime;
         this.updatedBy = updatedBy;
     }
-
 }
