@@ -83,12 +83,17 @@ public class PortRuleDTO {
 
         ArrayList<String> usedPorts = new ArrayList<>();
         // portInfos不为空表示该条端口规则中有端口被正在使用
-        if (!(portInfos == null || portInfos.isEmpty())) {
+        boolean bUsingFromPortInfos = !(portInfos == null || portInfos.isEmpty());
+        if (bUsingFromPortInfos) {
             portInfos.stream()
                     .map(PortInfo::getPortNumber)
                     .map(String::valueOf)
                     .forEach(usedPorts::add);
         }
+
+        // 判断端口规则的端口使用状态
+        // portInfos 来鉴定
+        boolean isUsing =  ! usedPorts.isEmpty();
 
         String sourceType = (entity.getSourceRule() != null
                 && entity.getSourceRule().getSource() != null
@@ -105,8 +110,7 @@ public class PortRuleDTO {
                 .sourceType(sourceType)
                 .sourceAddress(sourceAddress)
                 .description(entity.getDescriptor())
-//                .usedStatus(portInfos != null && !portInfos.isEmpty() ? "inUsed" : "notUsed")
-                .usedStatus(entity.getUsing() != null && entity.getUsing() ? "inUsed" : "notUsed")
+                .usedStatus(isUsing ? "inUsed" : "notUsed")
                 .zone(entity.getZone())
                 .family(entity.getFamily())
                 .permanent(entity.isPermanent())

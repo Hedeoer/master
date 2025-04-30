@@ -2,8 +2,10 @@ package com.zeta.firewall.controller;
 
 import com.zeta.firewall.model.dto.DeletePortRulesRequest;
 import com.zeta.firewall.model.dto.PortRuleDTO;
+import com.zeta.firewall.model.entity.FirewallPortRuleInfo;
 import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.service.FirewallPortRuleInfoService;
 import com.zeta.firewall.service.PortInfoService;
 import com.zeta.firewall.service.PortRuleService;
 import io.swagger.annotations.Api;
@@ -14,8 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.zetaframework.base.result.ApiResult;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -28,6 +32,7 @@ public class PortRuleController {
 
     private final PortRuleService portRuleService;
     private final PortInfoService portInfoService;
+    private final FirewallPortRuleInfoService firewallPortRuleInfoService;
 
     /**
      * 获取指定节点的端口规则列表
@@ -43,20 +48,37 @@ public class PortRuleController {
 
         // 调用服务层获取规则列表
         List<PortRule> rules = portRuleService.getPortRulesByNodeId(nodeId);
-        Map<String, List<PortInfo>> portInfosByPortRules = portInfoService.getPortInfosByPortRules(rules, nodeId);
+        List<FirewallPortRuleInfo> firewallPortRuleInfos = firewallPortRuleInfoService.queryAll();
+        List<PortInfo> portInfos = portInfoService.queryAllPortInfosDB();
 
-        rules.forEach(portRule -> {
-                    if (!portInfosByPortRules.isEmpty() && portInfosByPortRules.containsKey(portRule.getId())) {
-                        portRule.setUsing(true);
-                    }
-                });
+        // 根据规则列表获取端口使用信息(usedStatus，usedPorts，portUsageDetails)
+        // 思路：遍历rules，从firewallPortRuleInfos(ruleId 和 infoId关系映射表)查询是否有对应的ruleId，有则从portInfos中查询对应的portInfo，最后将portRule 转化为 PortRuleDTO
+
+        // 建立 ruleId -> List<infoId>
+        Map<Long, List<Long>> ruleIdToInfoIdList = firewallPortRuleInfos.stream()
+                .collect(Collectors.groupingBy(
+                        FirewallPortRuleInfo::getRuleId,
+                        Collectors.mapping(FirewallPortRuleInfo::getInfoId, Collectors.toList())
+                ));
+
+        // 建立 infoId -> PortInfo
+        Map<Long, PortInfo> infoIdToPortInfo = portInfos.stream()
+                .collect(Collectors.toMap(PortInfo::getId, p -> p));
 
         // 转换为DTO列表
         List<PortRuleDTO> dtoList = rules.stream()
-                .map(portRule -> PortRuleDTO.fromEntity(portRule, portInfosByPortRules.get(portRule.getId() + "")))
+                .map(portRule -> {
+                    List<Long> infoIds = ruleIdToInfoIdList.getOrDefault(portRule.getId(), Collections.emptyList());
+                    List<PortInfo> relatedPortInfos = infoIds.stream()
+                            .map(infoIdToPortInfo::get)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
+                    return PortRuleDTO.fromEntity(portRule, relatedPortInfos);
+                })
                 .collect(Collectors.toList());
         // 返回成功结果
         return ApiResult.success("获取端口规则成功", dtoList);
+
     }
 
     /**
@@ -122,7 +144,7 @@ public class PortRuleController {
     /**
      * 更新端口规则
      *
-     * @param ruleId 规则ID
+     * @param ruleId      规则ID
      * @param portRuleDTO 端口规则DTO
      * @return 更新结果
      */

@@ -4,14 +4,18 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zeta.firewall.dao.PortRuleMapper;
+import com.zeta.firewall.event.PortRuleUpdateEvent;
+import com.zeta.firewall.model.entity.FirewallPortRuleInfo;
 import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.service.FirewallPortRuleInfoService;
 import com.zeta.firewall.service.PortInfoService;
-import com.zeta.firewall.service.PortRuleService;
 import com.zeta.firewall.util.PortRuleUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -43,11 +47,13 @@ public class PortInfoPullService {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
     private final PortInfoService portInfoService;
-    private final PortRuleService portRuleService;
+    private final PortRuleMapper portRuleMapper;
+    private final FirewallPortRuleInfoService firewallPortRuleInfoService;
 
-    public PortInfoPullService(PortInfoService portInfoService, PortRuleService portRuleService) {
+    public PortInfoPullService(PortInfoService portInfoService, PortRuleMapper portRuleMapper, FirewallPortRuleInfoService firewallPortRuleInfoService) {
         this.portInfoService = portInfoService;
-        this.portRuleService = portRuleService;
+        this.portRuleMapper = portRuleMapper;
+        this.firewallPortRuleInfoService = firewallPortRuleInfoService;
     }
 
     /**
@@ -85,6 +91,8 @@ public class PortInfoPullService {
      *     <li>解析每个节点的数据，汇总成全量端口信息列表。</li>
      *     <li>将本次汇总结果与上一次同步的端口信息进行内容比对（忽略时间字段，仅关注关键端口特征字段）。</li>
      *     <li>如有变化（即任意节点端口状态发生变更），将全部最新端口信息批量写入数据库。</li>
+     *     <li>删除数据库中与当前列表中记录不匹配的端口信息。</li>
+     *     <li>更新端口规则和端口使用映射关系。</li>
      *     <li>同步（更新）本地缓存的最新端口集合，用于下次比对。</li>
      * </ol>
      *
@@ -108,67 +116,73 @@ public class PortInfoPullService {
      */
     @Scheduled(fixedDelay = FIXED_DELAY)
     @Transactional(rollbackFor = Exception.class)
-    public void pullPortInfo() {
+    public Boolean pullPortInfo() {
+
+        Boolean success = Boolean.TRUE;
+
         Map<String, String> rawMap = stringRedisTemplate.<String, String>opsForHash().entries(portInfoHashTableName);
         List<PortInfo> allCurrentPortInfos = parseAllPortInfos(rawMap);
 
         boolean hasChange = !portInfosAreEqual(lastAllAgentsLastedPortInfos, allCurrentPortInfos);
-        if (!hasChange) return;
+        if (!hasChange) return success;
 
-        // 数据库批量写入
+        // 数据库中全部端口信息
+        List<PortInfo> currentAllPortInfoFromDB = portInfoService.queryAllPortInfosDB();
+
         try {
             logger.info("端口信息有变化，开始更新数据库");
 
-            // 数据库中全部端口信息
-            List<PortInfo> currentAllPortInfoFromDB = portInfoService.queryAllPortInfosDB();
-
             // 找出不再使用的端口信息（在数据库中存在，但在当前列表中不存在）
             List<PortInfo> notInUsePortInfos = findNotInUsePortInfos(currentAllPortInfoFromDB, allCurrentPortInfos);
-
-            List<PortRule> currentAllPortRulesFromDB = portRuleService.queryAllPortRules();
-
-            // firewall_port_rule表 中没有端口没有被使用，需要更新using字段为false
             if (!notInUsePortInfos.isEmpty()) {
-                // 数据库中全部端口规则
-
-                // firewall_port_rule表 中存在但在 firewall_port_info表中没有映射的记录需要将 using 状态改为 false
-                // currentAllPortInfoFromDB
-                // currentAllPortRulesFromDB
-                List<PortInfo>  notMatchPortInfos =  PortRuleUtils.notMatchPortInfoInPortRules(currentAllPortRulesFromDB,currentAllPortInfoFromDB);
-                // 通过查询redis获取的不再使用的端口信息 合并 mysql（firewall_port_rule表 中存在但在 firewall_port_info表中）没有映射的端口记录
-                notMatchPortInfos.addAll(notInUsePortInfos);
-
-                // 通过端口信息匹配端口规则
-                List<PortRule> matchedPortRulesNeedChangeUsingToFalse = PortRuleUtils.matchPortRulesByPortInfos(currentAllPortRulesFromDB,notMatchPortInfos);
-                // 更新端口规则中的Using字段状态
-                portRuleService.updatePortRuleUsingToFalse(matchedPortRulesNeedChangeUsingToFalse);
-
                 logger.info("发现 {} 个端口不再使用，将从数据库中删除", notInUsePortInfos.size());
-                portInfoService.removePortInfosNotInUse(notInUsePortInfos);
+                Boolean removePortInfosNotInUse = portInfoService.removePortInfosNotInUse(notInUsePortInfos);
+                if (!removePortInfosNotInUse) {
+                    logger.info("删除端口信息失败，当前间隔：{} 毫秒", FIXED_DELAY);
+                    success =  Boolean.FALSE;
+                }
             }
-
-            // 目前最新检测到的正在被使用的端口（allCurrentPortInfos）， firewall_port_rule表中端口规则（currentAllPortRulesFromDB）
-            // currentAllPortRulesFromDB中涉及到allCurrentPortInfos的端口使用信息需要更新 using 字段为true，表示该端口正在被使用
-            List<PortRule> NeedChangeUsingToTruePortRules = PortRuleUtils.matchPortRulesUsingIsFalseButAgentCheckIsOnUsingPortRules(currentAllPortRulesFromDB,allCurrentPortInfos);
-            if (!NeedChangeUsingToTruePortRules.isEmpty()) {
-                portRuleService.updatePortRuleUsingToTrue(NeedChangeUsingToTruePortRules);
-            }
-
 
             // 插入或更新当前端口信息
-            if (portInfoService.insertOrUpdateBatchPortInfos(allCurrentPortInfos)) {
+            Boolean insertOrUpdateBatch = portInfoService.insertOrUpdateBatchPortInfos(allCurrentPortInfos);
 
+            // 全部的端口规则
+            List<PortRule> currentAllPortRulesFromDB = portRuleMapper.selectList(null);
+
+            // 寻找 端口规则和端口使用信息的映射关系
+            Map<String, List<PortInfo>> mappings = PortRuleUtils.connectPortInfosWithPortRules(currentAllPortRulesFromDB, allCurrentPortInfos);
+            ArrayList<FirewallPortRuleInfo> mappingsList = new ArrayList<>();
+            for (Map.Entry<String, List<PortInfo>> mapping : mappings.entrySet()) {
+                List<PortInfo> portInfoList = mapping.getValue();
+                for (PortInfo portInfo : portInfoList) {
+                    mappingsList.add(FirewallPortRuleInfo
+                            .builder()
+                            .ruleId(Long.parseLong(mapping.getKey()))
+                            .infoId(portInfo.getId())
+                            .build());
+                }
+            }
+
+
+            // 删除端口规则和端口使用映射关系（先全部删除，再全量插入）
+            Boolean allRemove = firewallPortRuleInfoService.removeAll();
+            Boolean addAll = firewallPortRuleInfoService.addOrUpdateAll(mappingsList);
+
+            if (insertOrUpdateBatch && allRemove && addAll) {
                 synchronized (lastAllAgentsLastedPortInfos) {
                     lastAllAgentsLastedPortInfos.clear();
                     lastAllAgentsLastedPortInfos.addAll(allCurrentPortInfos);
                 }
                 logger.info("端口信息更新成功，当前间隔：{} 毫秒", FIXED_DELAY);
             } else {
+                success = Boolean.FALSE;
                 logger.error("定时拉取端口信息更新失败, 当前间隔：{} 毫秒", FIXED_DELAY);
             }
         } catch (Exception e) {
+            success = Boolean.FALSE;
             logger.error("端口信息更新异常, 当前间隔：{} 毫秒", FIXED_DELAY, e);
         }
+        return success;
     }
 
     /** 将redis中节点所有json解码，合成全端口info列表 */
@@ -222,5 +236,15 @@ public class PortInfoPullService {
         return lastPortInfos.stream()
                 .filter(p -> !currentPortKeys.contains(p.getAgentId() + ":" + p.getProtocol() + ":" + p.getPortNumber()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 监听端口规则更新事件
+     * 当端口规则发生变化时，立即触发一次端口信息拉取
+     */
+    @EventListener
+    public void handlePortRuleUpdate(PortRuleUpdateEvent event) {
+        logger.info("收到端口规则更新事件，触发端口信息拉取");
+        this.pullPortInfo();
     }
 }

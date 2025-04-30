@@ -23,9 +23,16 @@ CREATE TABLE `firewall_port_info`
   COLLATE = utf8mb4_general_ci COMMENT = '防火墙端口使用信息表'
   ROW_FORMAT = DYNAMIC;
 
+drop table if exists firewall_port_rule_info;
+
 CREATE TABLE `firewall_port_rule_info`
 (
-    `id`      bigint(20) NOT NULL AUTO_INCREMENT,
+    `id`             bigint(20)   NOT NULL AUTO_INCREMENT COMMENT 'id',
+    `create_time`    datetime     NULL DEFAULT NULL COMMENT '创建时间',
+    `created_by`     bigint(20)   NULL DEFAULT NULL COMMENT '创建人',
+    `update_time`    datetime     NULL DEFAULT NULL COMMENT '修改时间',
+    `updated_by`     bigint(20)   NULL DEFAULT NULL COMMENT '修改人',
+
     `rule_id` bigint(20) NOT NULL COMMENT 'firewall_port_rule主键ID',
     `info_id` bigint(20) NOT NULL COMMENT 'firewall_port_info主键ID',
     PRIMARY KEY (`id`) USING BTREE,

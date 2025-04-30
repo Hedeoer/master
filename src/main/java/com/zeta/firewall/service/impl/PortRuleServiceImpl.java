@@ -1,25 +1,27 @@
 package com.zeta.firewall.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.zeta.firewall.dao.PortRuleMapper;
+import com.zeta.firewall.event.PortRuleUpdateEvent;
 import com.zeta.firewall.model.dto.RedisCommandMessage;
+import com.zeta.firewall.model.entity.FirewallPortRuleInfo;
 import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.service.FirewallPortRuleInfoService;
 import com.zeta.firewall.service.PortInfoService;
 import com.zeta.firewall.service.PortRuleService;
 import com.zeta.firewall.service.StreamResponseService;
 import com.zeta.firewall.subscirbe.StreamProducer;
 import com.zeta.firewall.util.JsonMessageConverter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.zetaframework.core.utils.JSONUtil;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 端口规则服务实现类
@@ -31,26 +33,44 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
     private final StreamResponseService streamResponseService;
     private final StreamProducer streamProducer;
     private final PortInfoService portInfoService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final FirewallPortRuleInfoService firewallPortRuleInfoService;
 
-    public PortRuleServiceImpl(StreamResponseService streamResponseService, StreamProducer streamProducer, PortInfoService portInfoService) {
+    public PortRuleServiceImpl(StreamResponseService streamResponseService, StreamProducer streamProducer, PortInfoService portInfoService, ApplicationEventPublisher eventPublisher, FirewallPortRuleInfoService firewallPortRuleInfoService) {
         this.streamResponseService = streamResponseService;
         this.streamProducer = streamProducer;
         this.portInfoService = portInfoService;
+        this.eventPublisher = eventPublisher;
+        this.firewallPortRuleInfoService = firewallPortRuleInfoService;
+    }
+
+    /**
+     * 发布端口规则更新事件
+     * 统一管理事件发布，避免重复代码
+     */
+    private void publishPortRuleUpdateEvent() {
+        try {
+            eventPublisher.publishEvent(new PortRuleUpdateEvent(this));
+            log.debug("端口规则更新事件已发布");
+        } catch (Exception e) {
+            log.error("发布端口规则更新事件失败", e);
+        }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)  // 添加事务注解，并指定回滚异常
     public List<PortRule> getPortRulesByNodeId(String nodeId) {
-       // 1. 查询数据库
-        List<PortRule> portRules = this.lambdaQuery()
-                .eq(PortRule::getAgentId, nodeId)
-                .list();
 
-        if (!portRules.isEmpty()) {
-            return portRules;
+        List<PortRule> portRules = new ArrayList<PortRule>();
+
+        // 先从从数据库获取
+        List<PortRule> portRulesFromDB = this.queryPortRulesByNodeId(nodeId);
+        if (!portRulesFromDB.isEmpty()) {
+            return portRulesFromDB;
         }
 
-        // 2. 通过Redis Stream查询
+
+        // 通过Redis Stream查询
         // 构建消息体
         HashMap<String, String> map = new HashMap<>();
         // todo 默认使用public区域
@@ -75,7 +95,35 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
         // 3. 保存到数据库
         if (!portRules.isEmpty()) {
-            this.saveBatch(portRules);
+            // 更新端口规则
+            // 手动触发一次端口使用情况更新
+            if (!(this.saveOrUpdatePortRules(portRules))) {
+                log.error("无法通过节点id: {}, 获取对应的端口规则",nodeId);
+            }else{
+                // 1.发布事件 因为发布的事件中涉及数据库的更新操作，需要开启新的事务
+                publishPortRuleUpdateEvent();
+//                log.info("getPortRulesByNodeId 当前事务: {}", TransactionSynchronizationManager.getCurrentTransactionName());
+
+                // 2. 查询最新数据
+                List<PortRule> lastedPortRules = this.queryAllPortRules();
+                List<FirewallPortRuleInfo> firewallPortRuleInfos = firewallPortRuleInfoService.queryAll();
+
+                // 3. 更新使用状态
+                for (PortRule lastedPortRule : lastedPortRules) {
+                    lastedPortRule.setUsing(false);
+                    for (FirewallPortRuleInfo info : firewallPortRuleInfos) {
+                        if (info.getRuleId().equals(lastedPortRule.getId())) {
+                            lastedPortRule.setUsing(true);
+                            break;
+                        }
+                    }
+                }
+
+                if (this.updateBatchById(lastedPortRules)) {
+                    portRules = lastedPortRules;
+                }
+
+            }
         }
 
         return portRules;
@@ -91,9 +139,42 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void saveOrUpdatePortRules(List<PortRule> portRules) {
-        if (!portRules.isEmpty()) {
-            this.saveOrUpdateBatch(portRules);
+    public Boolean saveOrUpdatePortRules(List<PortRule> portRules) {
+        if (portRules.isEmpty()) {
+            return false;
+        }
+
+        try {
+            // 1. 批量查询已存在的记录
+            List<PortRule> existingRules = new ArrayList<>();
+            for (PortRule rule : portRules) {
+                PortRule existing = this.lambdaQuery()
+                        .eq(PortRule::getAgentId, rule.getAgentId())
+                        .eq(PortRule::getPort, rule.getPort())
+                        .eq(PortRule::getProtocol, rule.getProtocol())
+                        .one();
+
+                if (existing != null) {
+                    // 如果存在记录，设置ID以触发更新
+                    rule.setId(existing.getId());
+                    existingRules.add(existing);
+                }
+            }
+
+            // 2. 执行批量保存或更新
+            boolean success = this.saveOrUpdateBatch(portRules);
+            if (!success) {
+                log.error("批量保存或更新端口规则失败");
+                return false;
+            }
+
+            // 3. 发布更新事件
+            publishPortRuleUpdateEvent();
+
+            return true;
+        } catch (Exception e) {
+            log.error("保存或更新端口规则失败", e);
+            throw e;
         }
     }
 
@@ -136,15 +217,16 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
         // 新增端口规则命令如何判断是否成功？
         boolean success  = sendRedisInsertCommandAndGetResponse(agentId,build);
 
-        // 更新端口的使用情况
-        List<PortInfo> portInfos = portInfoService.updatePortInfoByPortRules(List.of(portRule), agentId);
-        if (portInfos != null && !portInfos.isEmpty()) {
-            portRule.setUsing(true);
-        }
 
         // 如果成功，则保存到数据库
         // 失败则返回失败信息
         if (success && this.save(portRule)) {
+            // 更新端口的使用情况
+            List<PortInfo> portInfos = portInfoService.updatePortInfoByPortRules(List.of(portRule), agentId);
+            if (portInfos != null && !portInfos.isEmpty()) {
+                portRule.setUsing(true);
+            }
+            publishPortRuleUpdateEvent();
             res = true;
         }
 
@@ -254,8 +336,9 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
             boolean success = sendRedisDeleteCommandAndGetResponse(nodeId, build);
 
             // 4. 如果成功，则从数据库中删除
-            if (success) {
-                return this.removeByIds(ruleIds);
+            if (this.removeByIds(ruleIds)) {
+                publishPortRuleUpdateEvent();
+                return true;
             }
 
             return false;
@@ -344,7 +427,8 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
                 // 更新字段Using
                 portRule.setUsing(portInfos != null && !portInfos.isEmpty());
 
-                return this.updateById(portRule);
+                this.updateById(portRule);
+                return true;
             }
 
             return false;
@@ -352,62 +436,6 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
             log.error("Failed to update port rule with ruleId: {}", ruleId, e);
             return false;
         }
-    }
-
-    /**
-     * UPDATE firewall_port_rule
-     * SET `using` = 0
-     * WHERE (agent_id, port, protocol) IN (
-     *       ('节点A', '8080', 'tcp'),
-     *       ('节点B', '8080', 'tcp'),
-     *       ('节点C', '3306', 'tcp')
-     * );
-     * @param portRules 需要更新的端口规则对象
-     * @return
-     */
-    @Transactional(rollbackFor = Exception.class)
-    @Override
-    public Boolean updatePortRuleUsingToFalse(List<PortRule> portRules) {
-        if (portRules == null || portRules.isEmpty()) return true;
-
-        // 组装多字段 IN 的条件
-        String inValues = portRules.stream()
-                .map(r -> String.format("('%s', '%s', '%s')",
-                        r.getAgentId(),
-                        r.getPort(),
-                        r.getProtocol()))
-                .collect(Collectors.joining(","));
-
-        UpdateWrapper<PortRule> wrapper = new UpdateWrapper<>();
-        // 注意 inSql 的第一个参数需与表字段完全一致且不加别名
-        wrapper.inSql("(agent_id, port, protocol)", inValues);
-        // 字段名加反引号！MySQL保留字
-        wrapper.set("`using`", false);
-
-        int affected = this.baseMapper.update(null, wrapper);
-        return affected >= portRules.size();
-    }
-
-    @Override
-    public Boolean updatePortRuleUsingToTrue(List<PortRule> portRules) {
-        if (portRules == null || portRules.isEmpty()) return true;
-
-        // 组装多字段 IN 的条件
-        String inValues = portRules.stream()
-                .map(r -> String.format("('%s', '%s', '%s')",
-                        r.getAgentId(),
-                        r.getPort(),
-                        r.getProtocol()))
-                .collect(Collectors.joining(","));
-
-        UpdateWrapper<PortRule> wrapper = new UpdateWrapper<>();
-        // 注意 inSql 的第一个参数需与表字段完全一致且不加别名
-        wrapper.inSql("(agent_id, port, protocol)", inValues);
-        // 字段名加反引号！MySQL保留字
-        wrapper.set("`using`", true);
-
-        int affected = this.baseMapper.update(null, wrapper);
-        return affected >= portRules.size();
     }
 
     @Override
@@ -435,4 +463,5 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
             return success;
         }
     }
+
 }

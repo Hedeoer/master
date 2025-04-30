@@ -26,7 +26,7 @@ public interface PortRuleService extends IService<PortRule> {
      * 批量保存或更新端口规则
      * @param portRules 端口规则列表
      */
-    void saveOrUpdatePortRules(List<PortRule> portRules);
+    Boolean saveOrUpdatePortRules(List<PortRule> portRules);
 
     /**
      * 添加端口规则
@@ -50,21 +50,6 @@ public interface PortRuleService extends IService<PortRule> {
      * @return 更新结果 true:成功 false:失败
      */
     Boolean updatePortRule(Long ruleId, PortRule portRule);
-
-    /**
-     * 更新端口规则的Using字段为false
-     * @param portRules 需要更新的端口规则对象
-     * @return 全部更新成功返回true
-     */
-    Boolean updatePortRuleUsingToFalse(List<PortRule> portRules);
-
-    /**
-     * 更新端口规则的Using字段为true
-     * @param portRules 需要更新的端口规则对象
-     * @return 全部更新成功返回true
-     */
-    Boolean updatePortRuleUsingToTrue(List<PortRule> portRules);
-
 
     /**
      * 获取全部的端口规则

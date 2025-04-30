@@ -187,6 +187,8 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
             if (existing != null) {
                 // 如果存在，设置主键 ID，触发更新
                 entity.setId(existing.getId());
+            }else{
+                entity.setId(null);
             }
         }
         return  this.saveOrUpdateBatch(portInfos);
