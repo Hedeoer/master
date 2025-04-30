@@ -58,6 +58,13 @@ public interface PortRuleService extends IService<PortRule> {
      */
     Boolean updatePortRuleUsingToFalse(List<PortRule> portRules);
 
+    /**
+     * 更新端口规则的Using字段为true
+     * @param portRules 需要更新的端口规则对象
+     * @return 全部更新成功返回true
+     */
+    Boolean updatePortRuleUsingToTrue(List<PortRule> portRules);
+
 
     /**
      * 获取全部的端口规则

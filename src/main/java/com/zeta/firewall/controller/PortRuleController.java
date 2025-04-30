@@ -45,6 +45,12 @@ public class PortRuleController {
         List<PortRule> rules = portRuleService.getPortRulesByNodeId(nodeId);
         Map<String, List<PortInfo>> portInfosByPortRules = portInfoService.getPortInfosByPortRules(rules, nodeId);
 
+        rules.forEach(portRule -> {
+                    if (!portInfosByPortRules.isEmpty() && portInfosByPortRules.containsKey(portRule.getId())) {
+                        portRule.setUsing(true);
+                    }
+                });
+
         // 转换为DTO列表
         List<PortRuleDTO> dtoList = rules.stream()
                 .map(portRule -> PortRuleDTO.fromEntity(portRule, portInfosByPortRules.get(portRule.getId() + "")))

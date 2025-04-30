@@ -368,27 +368,45 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Boolean updatePortRuleUsingToFalse(List<PortRule> portRules) {
-
         if (portRules == null || portRules.isEmpty()) return true;
 
-        // 组建批量唯一标识
-        List<String> keys = portRules.stream()
-                .map(r -> r.getAgentId() + "|" + r.getPort() + "|" + r.getProtocol())
-                .collect(Collectors.toList());
+        // 组装多字段 IN 的条件
+        String inValues = portRules.stream()
+                .map(r -> String.format("('%s', '%s', '%s')",
+                        r.getAgentId(),
+                        r.getPort(),
+                        r.getProtocol()))
+                .collect(Collectors.joining(","));
 
         UpdateWrapper<PortRule> wrapper = new UpdateWrapper<>();
-        wrapper.inSql("(agent_id, port, protocol)",
-                keys.stream()
-                        .map(k -> {
-                            String[] arr = k.split("\\|");
-                            return "('" + arr[0] + "', '" + arr[1] + "', '" + arr[2] + "')";
-                        })
-                        .collect(Collectors.joining(","))
-        );
-        wrapper.set("using", false);
+        // 注意 inSql 的第一个参数需与表字段完全一致且不加别名
+        wrapper.inSql("(agent_id, port, protocol)", inValues);
+        // 字段名加反引号！MySQL保留字
+        wrapper.set("`using`", false);
 
         int affected = this.baseMapper.update(null, wrapper);
-        // 可根据 affected 行数判定
+        return affected >= portRules.size();
+    }
+
+    @Override
+    public Boolean updatePortRuleUsingToTrue(List<PortRule> portRules) {
+        if (portRules == null || portRules.isEmpty()) return true;
+
+        // 组装多字段 IN 的条件
+        String inValues = portRules.stream()
+                .map(r -> String.format("('%s', '%s', '%s')",
+                        r.getAgentId(),
+                        r.getPort(),
+                        r.getProtocol()))
+                .collect(Collectors.joining(","));
+
+        UpdateWrapper<PortRule> wrapper = new UpdateWrapper<>();
+        // 注意 inSql 的第一个参数需与表字段完全一致且不加别名
+        wrapper.inSql("(agent_id, port, protocol)", inValues);
+        // 字段名加反引号！MySQL保留字
+        wrapper.set("`using`", true);
+
+        int affected = this.baseMapper.update(null, wrapper);
         return affected >= portRules.size();
     }
 

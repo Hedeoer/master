@@ -236,4 +236,53 @@ public class PortRuleUtils {
         }
         return new ArrayList<>(result);
     }
+
+    /**
+     * firewall_port_rule表 中存在但在 firewall_port_info表中没有映射的记录
+     * 按照 PortInfo的属性
+     *     private String agentId;          // agent节点的唯一标识
+     *     private String protocol;         // 协议
+     *     private Integer portNumber;          // 端口号
+     * @param currentAllPortRulesFromDB
+     * @param currentAllPortInfoFromDB
+     * @return portInfo 记录
+     */
+    public static List<PortInfo> notMatchPortInfoInPortRules(List<PortRule> currentAllPortRulesFromDB, List<PortInfo> currentAllPortInfoFromDB) {
+
+
+        // 1. expandAndDeduplicatePortRules 已返回去重且展开后的 PortInfo 列表
+        List<PortInfo> explodePortInfos = expandAndDeduplicatePortRules(currentAllPortRulesFromDB);
+
+        // 2. 将 portInfo 用 agentId|protocol|portNumber 做 key 建 Set
+        Set<String> portInfoKeySet = currentAllPortInfoFromDB.stream()
+                .map(p -> p.getAgentId() + "|" + p.getProtocol() + "|" + p.getPortNumber())
+                .collect(Collectors.toSet());
+
+        // 3. 遍历 explodePortInfos，过滤掉能在 portInfoKeySet 找到的
+        return explodePortInfos.stream()
+                .filter(pi -> {
+                    String key = pi.getAgentId() + "|" + pi.getProtocol() + "|" + pi.getPortNumber();
+                    return !portInfoKeySet.contains(key);
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     *
+     * @param currentAllPortRulesFromDB 全部的端口规则
+     * @param allCurrentPortInfos agent上目前正在有使用的端口信息
+     * @return 需要调整端口规则中using为true的List<PortRule>
+     */
+    public static List<PortRule> matchPortRulesUsingIsFalseButAgentCheckIsOnUsingPortRules(List<PortRule> currentAllPortRulesFromDB, List<PortInfo> allCurrentPortInfos) {
+        // currentAllPortRulesFromDB中能够通过组合唯一键（agentId + protocol+ port）联系上allCurrentPortInfos的部分 List<PortRule>
+        // 能够联系上说明端口规则中using字段应该为true，表示正在被使用
+        Map<String, List<PortInfo>> canConnectPortRulesMap = connectPortInfosWithPortRules(currentAllPortRulesFromDB, allCurrentPortInfos);
+
+        // 过滤出using字段为false，且上一步判断能够联系上部分 List<PortRule>
+        // 返回结果，供调用处使用
+        return currentAllPortRulesFromDB.stream()
+                .filter(portRule -> Boolean.FALSE.equals(portRule.getUsing()))
+                .filter(portRule -> canConnectPortRulesMap.containsKey(portRule.getAgentId()))
+                .collect(Collectors.toList());
+    }
 }

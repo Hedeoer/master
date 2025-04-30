@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.zetaframework.core.utils.JSONUtil;
 
 import java.util.ArrayList;
@@ -106,6 +107,7 @@ public class PortInfoPullService {
      * </ul>
      */
     @Scheduled(fixedDelay = FIXED_DELAY)
+    @Transactional(rollbackFor = Exception.class)
     public void pullPortInfo() {
         Map<String, String> rawMap = stringRedisTemplate.<String, String>opsForHash().entries(portInfoHashTableName);
         List<PortInfo> allCurrentPortInfos = parseAllPortInfos(rawMap);
@@ -123,20 +125,39 @@ public class PortInfoPullService {
             // 找出不再使用的端口信息（在数据库中存在，但在当前列表中不存在）
             List<PortInfo> notInUsePortInfos = findNotInUsePortInfos(currentAllPortInfoFromDB, allCurrentPortInfos);
 
+            List<PortRule> currentAllPortRulesFromDB = portRuleService.queryAllPortRules();
+
+            // firewall_port_rule表 中没有端口没有被使用，需要更新using字段为false
             if (!notInUsePortInfos.isEmpty()) {
+                // 数据库中全部端口规则
+
+                // firewall_port_rule表 中存在但在 firewall_port_info表中没有映射的记录需要将 using 状态改为 false
+                // currentAllPortInfoFromDB
+                // currentAllPortRulesFromDB
+                List<PortInfo>  notMatchPortInfos =  PortRuleUtils.notMatchPortInfoInPortRules(currentAllPortRulesFromDB,currentAllPortInfoFromDB);
+                // 通过查询redis获取的不再使用的端口信息 合并 mysql（firewall_port_rule表 中存在但在 firewall_port_info表中）没有映射的端口记录
+                notMatchPortInfos.addAll(notInUsePortInfos);
+
+                // 通过端口信息匹配端口规则
+                List<PortRule> matchedPortRulesNeedChangeUsingToFalse = PortRuleUtils.matchPortRulesByPortInfos(currentAllPortRulesFromDB,notMatchPortInfos);
+                // 更新端口规则中的Using字段状态
+                portRuleService.updatePortRuleUsingToFalse(matchedPortRulesNeedChangeUsingToFalse);
+
                 logger.info("发现 {} 个端口不再使用，将从数据库中删除", notInUsePortInfos.size());
                 portInfoService.removePortInfosNotInUse(notInUsePortInfos);
-
-                // 数据库中全部端口规则
-                List<PortRule> currentAllPortRulesFromDB = portRuleService.queryAllPortRules();
-                // 通过端口信息匹配端口规则
-                List<PortRule> matchedPortRules = PortRuleUtils.matchPortRulesByPortInfos(currentAllPortRulesFromDB,notInUsePortInfos);
-                // 更新端口规则中的Using字段状态
-                portRuleService.updatePortRuleUsingToFalse(matchedPortRules);
             }
+
+            // 目前最新检测到的正在被使用的端口（allCurrentPortInfos）， firewall_port_rule表中端口规则（currentAllPortRulesFromDB）
+            // currentAllPortRulesFromDB中涉及到allCurrentPortInfos的端口使用信息需要更新 using 字段为true，表示该端口正在被使用
+            List<PortRule> NeedChangeUsingToTruePortRules = PortRuleUtils.matchPortRulesUsingIsFalseButAgentCheckIsOnUsingPortRules(currentAllPortRulesFromDB,allCurrentPortInfos);
+            if (!NeedChangeUsingToTruePortRules.isEmpty()) {
+                portRuleService.updatePortRuleUsingToTrue(NeedChangeUsingToTruePortRules);
+            }
+
 
             // 插入或更新当前端口信息
             if (portInfoService.insertOrUpdateBatchPortInfos(allCurrentPortInfos)) {
+
                 synchronized (lastAllAgentsLastedPortInfos) {
                     lastAllAgentsLastedPortInfos.clear();
                     lastAllAgentsLastedPortInfos.addAll(allCurrentPortInfos);
