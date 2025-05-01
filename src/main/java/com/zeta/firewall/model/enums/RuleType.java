@@ -1,4 +1,4 @@
-package com.zeta.firewall.model.entity;
+package com.zeta.firewall.model.enums;
 
 /**
  * 规则类型枚举

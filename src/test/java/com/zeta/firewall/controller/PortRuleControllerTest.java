@@ -3,7 +3,7 @@ package com.zeta.firewall.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeta.firewall.model.dto.PortRuleDTO;
 import com.zeta.firewall.model.entity.PortRule;
-import com.zeta.firewall.model.entity.RuleType;
+import com.zeta.firewall.model.enums.RuleType;
 import com.zeta.firewall.service.PortRuleService;
 import com.zeta.firewall.service.StreamResponseService;
 import com.zeta.firewall.subscirbe.StreamProducer;

@@ -2,7 +2,7 @@ package com.zeta.firewall.model.dto;
 
 import com.zeta.firewall.model.entity.PortInfo;
 import com.zeta.firewall.model.entity.PortRule;
-import com.zeta.firewall.model.entity.RuleType;
+import com.zeta.firewall.model.enums.RuleType;
 import com.zeta.firewall.validation.annotation.ValidSourceAddress;
 import com.zeta.firewall.validation.annotation.ValidSourceType;
 import io.swagger.annotations.ApiModel;

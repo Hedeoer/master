@@ -1,5 +1,6 @@
 package com.zeta.firewall.model.entity;
 
+import com.zeta.firewall.model.enums.RuleType;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.zetaframework.base.entity.Entity;

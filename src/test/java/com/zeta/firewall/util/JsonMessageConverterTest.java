@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zeta.firewall.model.dto.RedisCommandMessage;
 import com.zeta.firewall.model.entity.PortRule;
-import com.zeta.firewall.model.entity.RuleType;
+import com.zeta.firewall.model.enums.RuleType;
 import com.zeta.firewall.model.entity.SourceRule;
 import org.junit.jupiter.api.Test;
 

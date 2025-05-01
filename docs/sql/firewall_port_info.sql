@@ -27,17 +27,36 @@ drop table if exists firewall_port_rule_info;
 
 CREATE TABLE `firewall_port_rule_info`
 (
-    `id`             bigint(20)   NOT NULL AUTO_INCREMENT COMMENT 'id',
-    `create_time`    datetime     NULL DEFAULT NULL COMMENT '创建时间',
-    `created_by`     bigint(20)   NULL DEFAULT NULL COMMENT '创建人',
-    `update_time`    datetime     NULL DEFAULT NULL COMMENT '修改时间',
-    `updated_by`     bigint(20)   NULL DEFAULT NULL COMMENT '修改人',
+    `id`          bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+    `create_time` datetime   NULL DEFAULT NULL COMMENT '创建时间',
+    `created_by`  bigint(20) NULL DEFAULT NULL COMMENT '创建人',
+    `update_time` datetime   NULL DEFAULT NULL COMMENT '修改时间',
+    `updated_by`  bigint(20) NULL DEFAULT NULL COMMENT '修改人',
 
-    `rule_id` bigint(20) NOT NULL COMMENT 'firewall_port_rule主键ID',
-    `info_id` bigint(20) NOT NULL COMMENT 'firewall_port_info主键ID',
+    `rule_id`     bigint(20) NOT NULL COMMENT 'firewall_port_rule主键ID',
+    `info_id`     bigint(20) NOT NULL COMMENT 'firewall_port_info主键ID',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `uk_rule_info` (`rule_id`, `info_id`)
 ) ENGINE = InnoDB
   default charset = utf8mb4 COMMENT ='端口规则与端口信息映射表';
 
 
+
+CREATE TABLE `firewall_status_info`
+(
+    `id`            bigint(20)  NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `agent_id`      varchar(64) NOT NULL COMMENT '机器唯一标识',
+    `firewall_type` varchar(20) NOT NULL COMMENT '防火墙类型（FIREWALLD、UFW、NONE）',
+    `status`        varchar(20) DEFAULT NULL COMMENT '防火墙运行状态（UNKNOWN,NOT_INSTALLED,ACTIVE,INACTIVE）',
+    `version`       varchar(50) DEFAULT NULL COMMENT '防火墙版本号',
+    `ping_disabled` varchar(20) DEFAULT NULL COMMENT '是否禁ping (STATUS_DISABLE,STATUS_ENABLE,STATUS_NONE)',
+    `timestamp`     bigint(20)  DEFAULT NULL COMMENT '获取秒级时间戳',
+    `create_time`   datetime    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `created_by`    varchar(64) DEFAULT NULL COMMENT '创建人',
+    `update_time`   datetime    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `updated_by`    varchar(64) DEFAULT NULL COMMENT '更新人',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_agent_firewall` (`agent_id`, `firewall_type`) COMMENT 'agent_id和firewall_type组合唯一键',
+    KEY `idx_create_time` (`create_time`) COMMENT '创建时间索引'
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='防火墙状态信息表';

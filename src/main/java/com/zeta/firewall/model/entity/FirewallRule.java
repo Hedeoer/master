@@ -1,5 +1,7 @@
 package com.zeta.firewall.model.entity;
 
+import com.zeta.firewall.model.enums.RuleType;
+
 import java.util.Map;
 
 /**
