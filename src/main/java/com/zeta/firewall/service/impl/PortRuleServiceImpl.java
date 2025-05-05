@@ -76,7 +76,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
         // todo 默认使用public区域
         map.put("zoneName", "public");
 
-        List<String> primaryKeyColumns = List.of("port", "protocol");
+        List<String> primaryKeyColumns = List.of("family", "port", "protocol", "sourceRule", "policy", "agentId", "permanent", "type", "zone");
 
         RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
                 .agentId(nodeId)
@@ -150,8 +150,14 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
             for (PortRule rule : portRules) {
                 PortRule existing = this.lambdaQuery()
                         .eq(PortRule::getAgentId, rule.getAgentId())
+                        .eq(PortRule::isPermanent, rule.isPermanent())
+                        .eq(PortRule::getType, rule.getType())
+                        .eq(PortRule::getZone, rule.getZone())
+                        .eq(PortRule::getFamily, rule.getFamily())
                         .eq(PortRule::getPort, rule.getPort())
                         .eq(PortRule::getProtocol, rule.getProtocol())
+                        .eq(PortRule::getSourceRule, rule.getSourceRule())
+                        .eq(PortRule::getPolicy, rule.getPolicy())
                         .one();
 
                 if (existing != null) {
@@ -197,7 +203,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
         map.put("policy", String.valueOf(portRule.getPolicy()));
 //        map.put("isUsing", portRule.getUsing());
 
-        List<String> primaryKeyColumns = List.of("port", "protocol");
+        List<String> primaryKeyColumns = List.of("family", "port", "protocol", "sourceRule", "policy", "agentId", "permanent", "type", "zone");
 
         ArrayList<PortRule> data = new ArrayList<>();
         data.add(portRule);
@@ -320,7 +326,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
             HashMap<String, String> map = new HashMap<>();
             map.put("zoneName", "public"); // 默认使用public区域
 
-            List<String> primaryKeyColumns = List.of("port", "protocol");
+            List<String> primaryKeyColumns = List.of("family", "port", "protocol", "sourceRule", "policy", "agentId", "permanent", "type", "zone");
 
             RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
                     .agentId(nodeId)
@@ -400,7 +406,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
             map.put("zoneName", portRule.getZone());
             map.put("policy", String.valueOf(portRule.getPolicy()));
 
-            List<String> primaryKeyColumns = List.of("port", "protocol");
+            List<String> primaryKeyColumns = List.of("family", "port", "protocol", "sourceRule", "policy", "agentId", "permanent", "type", "zone");
 
             ArrayList<PortRule> data = new ArrayList<>();
             data.add(portRule);

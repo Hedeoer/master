@@ -24,9 +24,10 @@ CREATE TABLE `firewall_port_rule`
     `descriptor`  varchar(255) NULL DEFAULT NULL COMMENT '端口描述信息',
 
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_agent_port_protocol`(`agent_id`, `port`, `protocol`) COMMENT '节点下端口和协议唯一索引'
+    UNIQUE INDEX `uk_agent_port_protocol`(`agent_id`, `permanent`, `type`, `zone`, `family`, `port`, `protocol`, `source_rule`, `policy`) COMMENT '组合唯一索引'
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = '防火墙端口规则表'
   ROW_FORMAT = DYNAMIC;
+
 
