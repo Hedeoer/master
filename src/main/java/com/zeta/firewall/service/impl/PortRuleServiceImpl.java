@@ -156,7 +156,8 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
                         .eq(PortRule::getFamily, rule.getFamily())
                         .eq(PortRule::getPort, rule.getPort())
                         .eq(PortRule::getProtocol, rule.getProtocol())
-                        .eq(PortRule::getSourceRule, rule.getSourceRule())
+                        // 使用 apply 方法添加自定义 SQL 条件
+                        .apply("JSON_EXTRACT(source_rule, '$.source') = {0}", rule.getSourceRule().getSource())
                         .eq(PortRule::getPolicy, rule.getPolicy())
                         .one();
 
@@ -226,7 +227,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
 
         // 如果成功，则保存到数据库
         // 失败则返回失败信息
-        if (success && this.save(portRule)) {
+        if (success && this.saveOrUpdatePortRules(List.of(portRule))) {
             // 更新端口的使用情况
             List<PortInfo> portInfos = portInfoService.updatePortInfoByPortRules(List.of(portRule), agentId);
             if (portInfos != null && !portInfos.isEmpty()) {

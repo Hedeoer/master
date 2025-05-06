@@ -8,6 +8,7 @@ import com.zeta.firewall.model.entity.PortRule;
 import com.zeta.firewall.service.FirewallPortRuleInfoService;
 import com.zeta.firewall.service.PortInfoService;
 import com.zeta.firewall.service.PortRuleService;
+import com.zeta.firewall.util.IpUtils;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -93,6 +94,12 @@ public class PortRuleController {
             @ApiParam(value = "节点ID", required = true, example = "node1")
             @RequestBody PortRuleDTO portRuleDTO) {
 
+        // 0.前置检查
+        String family = portRuleDTO.getFamily();
+        String sourceAddress = portRuleDTO.getSourceAddress();
+        if (!IpUtils.isMappingIpType(sourceAddress, family)) {
+            return ApiResult.fail("添加端口规则失败: " + "源ip: "+sourceAddress+", 和 指定的ip协议族:"+family+" 类型不匹配");
+        }
 
         // 1. 转换DTO为实体
         PortRule portRule = portRuleDTO.toEntity();
