@@ -434,7 +434,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
                 // 更新字段Using
                 portRule.setUsing(portInfos != null && !portInfos.isEmpty());
 
-                this.updateById(portRule);
+                this.saveOrUpdatePortRules(List.of(portRule));
                 return true;
             }
 
