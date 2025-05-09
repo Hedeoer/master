@@ -36,12 +36,17 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
     private final ApplicationEventPublisher eventPublisher;
     private final FirewallPortRuleInfoService firewallPortRuleInfoService;
 
+    private String pubStreamKeySuffix;
+    private String subStreamKeySuffix;
+
     public PortRuleServiceImpl(StreamResponseService streamResponseService, StreamProducer streamProducer, PortInfoService portInfoService, ApplicationEventPublisher eventPublisher, FirewallPortRuleInfoService firewallPortRuleInfoService) {
         this.streamResponseService = streamResponseService;
         this.streamProducer = streamProducer;
         this.portInfoService = portInfoService;
         this.eventPublisher = eventPublisher;
         this.firewallPortRuleInfoService = firewallPortRuleInfoService;
+        this.pubStreamKeySuffix = "portRule";
+        this.subStreamKeySuffix = "portRule";
     }
 
     /**
@@ -244,8 +249,8 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
      * 发送Redis命令并获取新增端口规则的响应
      */
     private boolean sendRedisInsertCommandAndGetResponse(String nodeId, RedisCommandMessage<PortRule> build) {
-        String pubStreamkey = "pub:" + nodeId;
-        String subStreamkey = "sub:" + nodeId;
+        String pubStreamkey = "pub:" + nodeId + ":" + pubStreamKeySuffix;
+        String subStreamkey = "sub:" + nodeId + ":" + subStreamKeySuffix;
         boolean success = false;
 
         try {
@@ -266,8 +271,8 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
      * 从Redis Stream查询端口规则
      */
     private List<PortRule> sendRedisQueryCommandAndGetResponse(String nodeId, RedisCommandMessage<PortRule> commandMap) {
-        String pubStreamkey = "pub:" + nodeId;
-        String subStreamkey = "sub:" + nodeId;
+        String pubStreamkey = "pub:" + nodeId + ":" + pubStreamKeySuffix;
+        String subStreamkey = "sub:" + nodeId + ":" + subStreamKeySuffix;
 
         try {
 
@@ -359,8 +364,8 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
      * 发送Redis命令并获取删除端口规则的响应
      */
     private boolean sendRedisDeleteCommandAndGetResponse(String nodeId, RedisCommandMessage<PortRule> build) {
-        String pubStreamkey = "pub:" + nodeId;
-        String subStreamkey = "sub:" + nodeId;
+        String pubStreamkey = "pub:" + nodeId + ":" + pubStreamKeySuffix;
+        String subStreamkey = "sub:" + nodeId + ":" + subStreamKeySuffix;
         boolean success = false;
 
         try {
@@ -454,8 +459,8 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
      * 发送Redis命令并获取更新端口规则的响应
      */
     private boolean sendRedisUpdateCommandAndGetResponse(String nodeId, RedisCommandMessage<PortRule> build) {
-        String pubStreamkey = "pub:" + nodeId;
-        String subStreamkey = "sub:" + nodeId;
+        String pubStreamkey = "pub:" + nodeId + ":" + pubStreamKeySuffix;
+        String subStreamkey = "sub:" + nodeId + ":" + subStreamKeySuffix;
         boolean success = false;
 
         try {

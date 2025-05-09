@@ -1,0 +1,44 @@
+autoDetectedPackages:
+- com.zeta
+- org.zetaframework.base.controller
+- org.zetaframework.base.entity
+- org.zetaframework.base.param
+- org.zetaframework.base.result
+- org.zetaframework.core.async
+- org.zetaframework.core.constants
+- org.zetaframework.core.enums
+- org.zetaframework.core.exception
+- org.zetaframework.core.jackson
+- org.zetaframework.core.log
+- org.zetaframework.core.mybatisplus
+- org.zetaframework.core.redis
+- org.zetaframework.core.saToken
+- org.zetaframework.core.swagger
+- org.zetaframework.core.utils
+- org.zetaframework.core.validation
+- org.zetaframework.core.xss
+- org.zetaframework.extra.crypto
+- org.zetaframework.extra.desensitization
+- org.zetaframework.extra.file
+- org.zetaframework.extra.websocket
+enableAutoDetect: true
+entryDisplayConfig:
+  excludedPathPatterns: []
+  skipJsCss: true
+funcDisplayConfig:
+  skipConstructors: false
+  skipFieldAccess: true
+  skipFieldChange: true
+  skipGetters: false
+  skipNonProjectPackages: false
+  skipPrivateMethods: false
+  skipSetters: false
+ignoreSameClassCall: null
+ignoreSamePackageCall: null
+includedPackagePrefixes: null
+includedParentClasses: null
+name: xcodemap-filter
+recordMode: all
+sourceDisplayConfig:
+  color: blue
+startOnDebug: false

@@ -431,8 +431,9 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
      * 刷新单个节点
      */
     private void refreshSingleNode(String nodeId, List<String> failedNodeIds) {
-        String pubStreamkey = "pub:" + nodeId;
-        String subStreamkey = "sub:" + nodeId;
+
+        String pubStreamkey = "pub:" + nodeId + ":" + "portRule";
+        String subStreamkey = "sub:" + nodeId + ":" + "portRule";
 
         try {
             // 构建消息体
