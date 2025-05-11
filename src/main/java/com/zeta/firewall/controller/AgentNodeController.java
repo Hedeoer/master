@@ -10,12 +10,15 @@ import com.zeta.firewall.model.dto.AgentNodeInfoDTO;
 import com.zeta.firewall.model.dto.RedisCommandMessage;
 import com.zeta.firewall.model.entity.AgentNodeInfo;
 import com.zeta.firewall.model.entity.PortRule;
+import com.zeta.firewall.model.entity.SshServerInfo;
 import com.zeta.firewall.model.param.AgentNodeQueryParam;
 import com.zeta.firewall.schedule.HeartBeatService;
 import com.zeta.firewall.service.AgentNodeInfoService;
+import com.zeta.firewall.service.MinaSShService;
 import com.zeta.firewall.service.StreamResponseService;
 import com.zeta.firewall.subscirbe.StreamProducer;
 import com.zeta.firewall.util.JsonMessageConverter;
+import com.zeta.ssh.ED25519KeyGenerator;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +64,9 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
     private StreamResponseService streamResponseService;
     @Resource(name = "taskExecutor")  // 按名称注入，不需要 @Autowired
     private Executor taskExecutor;
+
+    private final MinaSShService minaSShService;
+
 
     /**
      * 分页查询节点列表
@@ -374,7 +380,7 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
             // 串行的向所有agent节点发布手动心跳命令，消费来自每个agent节点的响应
             // 如果节点非常多且子节点响应耗时长，极端情况下每个节点都会等待一定时间，将会导致本次controller响应超时
             // 考虑使用异步发送命令
-            refreshFailNodeIds = refreshNodesAsync(nodeIds, 10);
+            refreshFailNodeIds = refreshNodesAsync(nodeIds, 20);
 
             // 不管刷新结果如何，都手动触发一次主节点心跳检查
             heartBeatService.heartBeatCheckPeriod();
@@ -476,6 +482,52 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
             log.error("Failed to refresh node: {}", nodeId, e);
             failedNodeIds.add(nodeId);
         }
+    }
+
+    /**
+     *获取master节点公钥
+     * @return ApiResult<String> 公钥
+     */
+    @ApiOperationSupport(order = 41, author = "hedeoer")
+    @ApiOperation(value = "获取master节点公钥")
+    @SysLog
+    @GetMapping("/public-key")
+    public ApiResult<String> getHostPublicKey() {
+
+        String publicKey = ED25519KeyGenerator.getPublicKey();
+        if (!publicKey.isEmpty()) {
+            return ApiResult.success("获取master节点公钥成功",publicKey);
+        }
+        return ApiResult.fail("获取master节点公钥失败:", null);
+    }
+
+    /**
+     *检查特定agent节点上的ssh服务状态
+     * @return ApiResult<SshServerInfo> 服务状态
+     */
+    @ApiOperationSupport(order = 42, author = "hedeoer")
+    @ApiOperation(value = "获取master节点公钥")
+    @SysLog
+    @PostMapping("/check-agent")
+    public ApiResult<SshServerInfo> checkAgentRunningStatus(@RequestBody Map<String, String> params) {
+        //{
+        //  "serverUserName": "hedeoer",
+        //  "sshServerIpOrHostName": "vm100",
+        //  "sshServerPort": 45876,
+        //  "publicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFnqcDG0yPisMvC9ehfSkzzrHa80n7YPAe6xv3bQMiDC H@DESKTOP-1AO4P84"
+        //}
+        // 公钥暂时没有用途
+        String publicKey = params.get("publicKey");
+        String serverUserName = params.get("serverUserName");
+        String sshServerIpOrHostName = params.get("sshServerIpOrHostName");
+        Integer sshServerPort = Integer.valueOf(params.get("sshServerPort"));
+
+        SshServerInfo sshServerInfo = minaSShService.checkAgentRunningStatus(serverUserName, sshServerIpOrHostName, sshServerPort, false);
+        if (sshServerInfo != null) {
+            return ApiResult.success("添加客户端成功",sshServerInfo);
+        }
+
+        return ApiResult.fail("添加客户端失败:", null);
     }
 
 

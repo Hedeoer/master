@@ -31,11 +31,10 @@ public class SimpleSshClient {
 
     //客户端私钥文件的路径
     private static final Path CLIENT_PRIVATE_KEY_PATH = Paths.get(System.getProperty("user.home"), ".ssh", "id_ed25519");
+    // 已知主机公钥存放地址
     private static final Path CLIENT_KNOWN_HOSTS = Paths.get(System.getProperty("user.home"), ".ssh", "known_hosts");
     private static final String CLIENT_PRIVATE_KEY_PASSPHRASE = null;
 
-    // 已知主机公钥存放地址
-    private static final Path knownHostsPath = Paths.get(System.getProperty("user.home"), ".ssh", "known_hosts");
 
     /**
      * 检查SSH服务器上agent的运行状态。
