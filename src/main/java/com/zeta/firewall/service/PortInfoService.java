@@ -60,4 +60,6 @@ public interface PortInfoService {
      * @return 端口信息列表
      */
     List<PortInfo> queryAllPortInfosDB();
+
+    Boolean deletePortInfosByNodeIds(List<String> nodeIds);
 }

@@ -35,4 +35,6 @@ public interface FirewallStatusInfoService {
      * @return 操作结果 true:成功 false:失败
      */
     Boolean operatePing(String nodeId, String pingStatusOp);
+
+    Boolean deleteFirewallStatusInfoByNodeIds(List<String> nodeIds);
 }

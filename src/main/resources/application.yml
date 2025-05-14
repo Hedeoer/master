@@ -193,6 +193,7 @@ spring:
         max-idle: 10
         # 连接池中的最小空闲连接
         min-idle: 0
+    ssl: ${zeta.redis.ssl.enabled}
 
 # Mybatis-plus配置 https://baomidou.com/pages/56bac0/#%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
 mybatis-plus:

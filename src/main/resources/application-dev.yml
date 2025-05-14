@@ -2,9 +2,11 @@
 zeta:
   redis:
     database: 0
-    ip: vm79
+    ip: hedeoer.ggff.net
     port: 6379
-    password: ''
+    password: 'hedeoer123'
+    ssl:
+      enabled: true
   # 数据源配置
   database:
     url: jdbc:mysql://localhost:3306/zeta_java?serverTimezone=Asia/Shanghai&useSSL=false&characterEncoding=utf8&allowPublicKeyRetrieval=true&useUnicode=true

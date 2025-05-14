@@ -281,4 +281,9 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
         return this.getBaseMapper().selectList(null);
 
     }
+
+    @Override
+    public Boolean deletePortInfosByNodeIds(List<String> nodeIds) {
+        return this.remove(new QueryWrapper<PortInfo>().in("agent_id", nodeIds));
+    }
 }

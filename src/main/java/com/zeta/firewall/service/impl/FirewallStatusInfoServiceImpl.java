@@ -194,6 +194,11 @@ public  class FirewallStatusInfoServiceImpl extends ServiceImpl<FirewallStatusIn
         }
     }
 
+    @Override
+    public Boolean deleteFirewallStatusInfoByNodeIds(List<String> nodeIds) {
+        return this.remove(new QueryWrapper<FirewallStatusInfo>().in("agent_id", nodeIds));
+    }
+
     /**
      * 发送Redis命令并获取防火墙操作的响应
      * @param nodeId 节点ID

@@ -13,9 +13,7 @@ import com.zeta.firewall.model.entity.PortRule;
 import com.zeta.firewall.model.entity.SshServerInfo;
 import com.zeta.firewall.model.param.AgentNodeQueryParam;
 import com.zeta.firewall.schedule.HeartBeatService;
-import com.zeta.firewall.service.AgentNodeInfoService;
-import com.zeta.firewall.service.MinaSShService;
-import com.zeta.firewall.service.StreamResponseService;
+import com.zeta.firewall.service.*;
 import com.zeta.firewall.subscirbe.StreamProducer;
 import com.zeta.firewall.util.JsonMessageConverter;
 import com.zeta.ssh.ED25519KeyGenerator;
@@ -66,6 +64,10 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
     private Executor taskExecutor;
 
     private final MinaSShService minaSShService;
+    private final PortRuleService portRuleService;
+    private final PortInfoService portInfoService;
+    private final FirewallStatusInfoService fireWallStatusInfoService;
+
 
 
     /**
@@ -509,7 +511,7 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
     @ApiOperation(value = "获取master节点公钥")
     @SysLog
     @PostMapping("/check-agent")
-    public ApiResult<SshServerInfo> checkAgentRunningStatus(@RequestBody Map<String, String> params) {
+    public ApiResult<SshServerInfo> checkAgentRunningStatus(@RequestBody Map<String, Object> params) {
         //{
         //  "serverUserName": "hedeoer",
         //  "sshServerIpOrHostName": "vm100",
@@ -517,10 +519,16 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
         //  "publicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFnqcDG0yPisMvC9ehfSkzzrHa80n7YPAe6xv3bQMiDC H@DESKTOP-1AO4P84"
         //}
         // 公钥暂时没有用途
-        String publicKey = params.get("publicKey");
-        String serverUserName = params.get("serverUserName");
-        String sshServerIpOrHostName = params.get("sshServerIpOrHostName");
-        Integer sshServerPort = Integer.valueOf(params.get("sshServerPort"));
+        String publicKey = params.get("publicKey").toString();
+        String serverUserName = params.get("serverUserName").toString();
+        String sshServerIpOrHostName = params.get("sshServerIpOrHostName").toString();
+        Integer sshServerPort;
+        Object portObj = params.get("sshServerPort");
+        if (portObj instanceof Integer) {
+            sshServerPort = (Integer) portObj;
+        } else {
+            sshServerPort = Integer.parseInt(portObj.toString());
+        }
 
         SshServerInfo sshServerInfo = minaSShService.checkAgentRunningStatus(serverUserName, sshServerIpOrHostName, sshServerPort, false);
         if (sshServerInfo != null) {
@@ -530,5 +538,44 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
         return ApiResult.fail("添加客户端失败:", null);
     }
 
+    /**
+     * 批量删除节点
+     *
+     * 根据节点ID列表批量删除节点信息
+     *
+     * @param nodeIds 节点ID列表
+     * @param repeatSubmit 防止重复提交标识
+     * @return ApiResult<Boolean> 删除结果
+     */
+    @ApiOperationSupport(order = 50, author = "AutoGenerator")
+    @ApiOperation(value = "批量删除节点")
+    @SysLog
+    @DeleteMapping("/batch")
+    public ApiResult<Boolean> batchDeleteNodes(
+            @RequestBody List<String> nodeIds,
+            @RequestHeader(value = "repeatSubmit", required = false, defaultValue = "true") boolean repeatSubmit) {
+
+        // 验证输入参数
+        if (nodeIds == null || nodeIds.isEmpty()) {
+            return ApiResult.fail("节点ID列表不能为空", false);
+        }
+
+        try {
+            // 执行批量删除操作
+            service.removeByIds(nodeIds);
+            // 删除节点相关的端口规则
+            portRuleService.deletePortRulesByNodeIds(nodeIds);
+            // 删除节点相关的端口信息
+            portInfoService.deletePortInfosByNodeIds(nodeIds);
+            // 删除节点相关的防火墙状态信息
+            fireWallStatusInfoService.deleteFirewallStatusInfoByNodeIds(nodeIds);
+
+            return ApiResult.success("批量删除成功", true);
+
+        } catch (Exception e) {
+            log.error("批量删除节点失败", e);
+            return ApiResult.fail("批量删除失败: " + e.getMessage(), false);
+        }
+    }
 
 }

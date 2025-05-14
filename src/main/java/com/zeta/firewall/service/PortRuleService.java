@@ -56,4 +56,6 @@ public interface PortRuleService extends IService<PortRule> {
      * @return 列表
      */
     List<PortRule> queryAllPortRules();
+
+    Boolean deletePortRulesByNodeIds(List<String> nodeIds);
 }

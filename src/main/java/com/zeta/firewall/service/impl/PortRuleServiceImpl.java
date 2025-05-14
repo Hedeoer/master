@@ -1,5 +1,6 @@
 package com.zeta.firewall.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.zeta.firewall.dao.PortRuleMapper;
@@ -453,6 +454,11 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
     @Override
     public List<PortRule> queryAllPortRules() {
         return this.getBaseMapper().selectList(null);
+    }
+
+    @Override
+    public Boolean deletePortRulesByNodeIds(List<String> nodeIds) {
+        return this.remove(new LambdaQueryWrapper<PortRule>().in(PortRule::getAgentId, nodeIds));
     }
 
     /**
