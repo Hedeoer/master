@@ -1,3 +1,46 @@
+# 防火墙管理模块
+
+## 概述
+防火墙管理模块设计用于管理和监控多个服务器节点上的防火墙配置。它提供了控制防火墙服务、管理端口规则以及监控远程服务器上防火墙状态的功能。
+
+## 主要功能
+- 多节点机器防火墙端口规则的集中管理（适配firewalld，ufw）
+- 远程防火墙服务管理（启动、停止、重启）
+- 端口规则配置和管理
+- 基于SSH的代理通信
+- 实时防火墙状态监控
+- ICMP/Ping控制功能
+
+## 架构
+该模块主要由两个组件组成：master和agent
+- master: 基于zeta-java 基础开发框架，新开发防火墙功能，提供机器入方向的端口规则的管理，管理配置和发送命令
+- agent: 实现节点的自动注册，防火墙命令的接收和执行，汇报
+- master组件和agent组件通过 Redis stream和SSH连接进行，Redis stream负责命令的传输和响应（启用SSL），SSH只用于agent节点的注册时使用
+
+
+## 通信流程
+1. 命令通过Redis流发送到目标代理
+2. 代理在各自的服务器上执行命令
+3. 结果通过Redis流返回
+4. 中央服务器处理并存储结果
+
+
+## 依赖
+- Redis用于命令流传输
+- Apache MINA SSH用于与代理的安全通信
+- Spring事务管理用于数据一致性
+- MyBatis-Plus用于数据库操作
+- ...
+
+
+## 防火墙功能预览
+![节点管理功能预览](docs/03功能介绍/img/节点基本管理.png)
+
+![端口规则功能预览](docs/03功能介绍/img/端口规则.png)
+
+![添加端口规则功能](docs/03功能介绍/img/添加端口规则.png)
+
+
 # zeta-java 基础开发框架
 
 ## 简介
@@ -78,3 +121,6 @@ zeta-java目前只提供了一个最基础的RBAC用户角色权限功能。不�
 - knife4j：[https://doc.xiaominfo.com/](https://doc.xiaominfo.com/)
 - Hutool：[https://hutool.cn/](https://hutool.cn/)
 - EasyPoi：[http://www.wupaas.com/](http://doc.wupaas.com/docs/easypoi)
+- beszel: [https://github.com/henrygd/beszel.git](https://github.com/henrygd/beszel.git)
+- 1Panel: [https://github.com/1Panel-dev/1Panel.git](https://github.com/1Panel-dev/1Panel.git)
+- mina-ssh: [https://github.com/apache/mina-sshd.git](https://github.com/apache/mina-sshd.git)
