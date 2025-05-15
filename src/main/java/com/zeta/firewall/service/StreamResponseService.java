@@ -84,13 +84,24 @@ public class StreamResponseService {
      * @param e           最后一次重试失败的异常
      * @param nodeId      节点ID
      * @param subStreamkey Stream的实际二级Key
+     * @param pubStreamKey 用于构建消费组名字和消费者名称
      * @param recordId    要读取的消息的唯一ID
      * @return 默认值（当前实现为直接抛出运行时异常）
      */
     @Recover
-    public Map<Object, Object> recover(EmptyResultException e, String nodeId, String subStreamkey, RecordId recordId) {
+    public Map<Object, Object> recover(EmptyResultException e, String nodeId, String subStreamkey,String pubStreamKey, RecordId recordId) {
+
         log.error("All retry attempts failed for recordId: {}", recordId, e);
-        // 返回默认值或抛出异常
+
+        // 即使重试失败，也需要确认消息已处理，避免消息堆积
+        String groupName = "firewall_" + pubStreamKey + "_group";
+        String consumerName = groupName + "_consumer";
+        StreamConsumer streamConsumer = new StreamConsumer(redisConnectionFactory, subStreamkey, groupName, consumerName);
+
+        // 确认消息已处理完成，避免重复消费
+        Long ackResult = streamConsumer.acknowledgeMessage(recordId);
+
+        log.info("Message acknowledged in recover method, result: {}", ackResult);
         throw new RuntimeException("Failed to get response after all retry attempts", e);
     }
 }

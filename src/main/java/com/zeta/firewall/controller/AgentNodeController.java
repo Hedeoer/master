@@ -67,6 +67,7 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
     private final PortRuleService portRuleService;
     private final PortInfoService portInfoService;
     private final FirewallStatusInfoService fireWallStatusInfoService;
+    private final AgentNodeInfoService agentNodeInfoService;
 
 
 
@@ -561,15 +562,7 @@ public class AgentNodeController extends SuperSimpleController<AgentNodeInfoServ
         }
 
         try {
-            // 执行批量删除操作
-            service.removeByIds(nodeIds);
-            // 删除节点相关的端口规则
-            portRuleService.deletePortRulesByNodeIds(nodeIds);
-            // 删除节点相关的端口信息
-            portInfoService.deletePortInfosByNodeIds(nodeIds);
-            // 删除节点相关的防火墙状态信息
-            fireWallStatusInfoService.deleteFirewallStatusInfoByNodeIds(nodeIds);
-
+            agentNodeInfoService.batchDeleteNodes(nodeIds);
             return ApiResult.success("批量删除成功", true);
 
         } catch (Exception e) {

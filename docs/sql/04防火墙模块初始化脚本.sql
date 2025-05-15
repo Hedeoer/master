@@ -1,0 +1,10 @@
+
+-- 初始化菜单
+insert into zeta_java.sys_menu (id, create_time, created_by, update_time, updated_by, label, parent_id, sort_value, name, path, component, redirect, icon, authority, type, deleted, hide, keep_alive, href, frame_src) values (1914674813654269952, '2025-04-22 21:37:03', 1645607078095486976, '2025-05-02 11:33:57', 1645607078095486976, '集群管理', 0, 2, 'agents', '/agents', '', null, 'ep:timer', '', 'MENU', false, false, false, '', '');
+insert into zeta_java.sys_menu (id, create_time, created_by, update_time, updated_by, label, parent_id, sort_value, name, path, component, redirect, icon, authority, type, deleted, hide, keep_alive, href, frame_src) values (1914678160486563840, '2025-04-22 21:50:21', 1645607078095486976, '2025-05-02 11:34:00', 1645607078095486976, '节点信息', 1914674813654269952, 1, 'agents_summary', '/agents/summary', 'agents/summary', null, 'ep:video-play', '', 'MENU', false, false, false, '', '');
+insert into zeta_java.sys_menu (id, create_time, created_by, update_time, updated_by, label, parent_id, sort_value, name, path, component, redirect, icon, authority, type, deleted, hide, keep_alive, href, frame_src) values (1915406936732336128, '2025-04-24 22:06:15', 1645607078095486976, '2025-05-02 11:37:53', 1645607078095486976, '防火墙', 1914674813654269952, 2, 'agents_firewall', '/agents/firewall', 'agents/firewall', null, 'ep:lock', '', 'MENU', false, false, false, '', '');
+
+-- 角色菜单初始化
+INSERT INTO zeta_java.sys_role_menu (id, create_time, created_by, role_id, menu_id) VALUES (1915407532365447177, '2025-04-24 22:08:37', 1645607078095486976, 1645607076937859072, 1914674813654269952);
+INSERT INTO zeta_java.sys_role_menu (id, create_time, created_by, role_id, menu_id) VALUES (1915407532365447178, '2025-04-24 22:08:37', 1645607078095486976, 1645607076937859072, 1914678160486563840);
+INSERT INTO zeta_java.sys_role_menu (id, create_time, created_by, role_id, menu_id) VALUES (1915407532365447179, '2025-04-24 22:08:37', 1645607078095486976, 1645607076937859072, 1915406936732336128);

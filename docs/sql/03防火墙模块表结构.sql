@@ -1,5 +1,61 @@
-DROP TABLE IF EXISTS `firewall_port_info`;
+create table if not exists agent_node_info
+(
+    agent_id            varchar(22)  not null comment 'agent节点唯一标识，22位字符串'
+        primary key,
+    heartbeat_timestamp varchar(20)  not null comment 'agent节点心跳上报时的时间戳',
+    is_first_heartbeat  tinyint(1)   not null comment '是否首次上报（0=否, 1=是）',
+    is_active           tinyint(1)   not null comment '是否存活（0=否, 1=是）',
+    os_name             varchar(64)  null comment 'agent节点的操作系统类型',
+    host_name           varchar(128) null comment '节点主机名',
+    ip                  varchar(45)  null comment '节点IP（支持IPv6）',
+    cpu_usage           varchar(20)  null comment 'CPU使用率',
+    memory_usage        varchar(20)  null comment '内存使用率',
+    disk_usage          varchar(20)  null comment '磁盘使用率',
+    client_version      varchar(32)  null comment '客户端版本'
+)
+    ENGINE = InnoDB
+    CHARACTER SET = utf8mb4
+    COLLATE = utf8mb4_general_ci COMMENT = 'Agent节点信息表'
+    ROW_FORMAT = DYNAMIC;
 
+create index idx_heartbeat_timestamp
+    on agent_node_info (heartbeat_timestamp);
+
+
+
+DROP TABLE IF EXISTS `firewall_port_rule`;
+CREATE TABLE `firewall_port_rule`
+(
+    `id`          bigint(20)   NOT NULL AUTO_INCREMENT COMMENT 'id',
+    `create_time` datetime     NULL DEFAULT NULL COMMENT '创建时间',
+    `created_by`  bigint(20)   NULL DEFAULT NULL COMMENT '创建人',
+    `update_time` datetime     NULL DEFAULT NULL COMMENT '修改时间',
+    `updated_by`  bigint(20)   NULL DEFAULT NULL COMMENT '修改人',
+
+    -- AbstractFirewallRule fields
+    `permanent`   bit(1)       NULL DEFAULT NULL COMMENT '是否永久生效',
+    `type`        varchar(32)  NULL DEFAULT NULL COMMENT '规则类型',
+    `zone`        varchar(32)  NULL DEFAULT NULL COMMENT '作用域',
+    `agent_id`    varchar(64)  NULL DEFAULT NULL COMMENT '所属节点ID',
+
+    -- PortRule specific fields
+    `family`      varchar(10)  NULL DEFAULT NULL COMMENT 'ip类型(ipv4,ipv6)',
+    `port`        varchar(32)  NOT NULL COMMENT '端口号或范围(如 "80" 或 "1024-2048")',
+    `protocol`    varchar(10)  NOT NULL COMMENT '协议(tcp或udp)',
+    `using`       bit(1)       NULL DEFAULT NULL COMMENT '端口使用状态(已使用，未使用)',
+    `policy`      bit(1)       NULL DEFAULT NULL COMMENT '端口策略(允许，拒绝)',
+    `source_rule` varchar(255) NULL DEFAULT NULL COMMENT '源IP地址或CIDR',
+    `descriptor`  varchar(255) NULL DEFAULT NULL COMMENT '端口描述信息',
+
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE INDEX `uk_agent_port_protocol` (`agent_id`, `permanent`, `type`, `zone`, `family`, `port`, `protocol`,
+                                           `source_rule`, `policy`) COMMENT '组合唯一索引'
+) ENGINE = InnoDB
+  CHARACTER SET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT = '防火墙端口规则表'
+  ROW_FORMAT = DYNAMIC;
+
+DROP TABLE IF EXISTS `firewall_port_info`;
 CREATE TABLE `firewall_port_info`
 (
     `id`             bigint(20)   NOT NULL AUTO_INCREMENT COMMENT 'id',
@@ -24,7 +80,6 @@ CREATE TABLE `firewall_port_info`
   ROW_FORMAT = DYNAMIC;
 
 drop table if exists firewall_port_rule_info;
-
 CREATE TABLE `firewall_port_rule_info`
 (
     `id`          bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
@@ -41,7 +96,7 @@ CREATE TABLE `firewall_port_rule_info`
   default charset = utf8mb4 COMMENT ='端口规则与端口信息映射表';
 
 
-
+drop table if exists `firewall_status_info`;
 CREATE TABLE `firewall_status_info`
 (
     `id`            bigint(20)  NOT NULL AUTO_INCREMENT COMMENT '主键ID',
