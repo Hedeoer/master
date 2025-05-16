@@ -23,20 +23,7 @@ public class PortInfo extends Entity<Long> {
     private Integer processId;           // 进程ID
     private String commandLine;      // 完整命令行
     private String listenAddress;    // 监听地址
-
-    /**
-     * 计算信息完整度评分
-     * 用于在多个相同端口的连接中选择信息最完整的一条
-     * @return 信息完整度评分，分数越高表示信息越完整
-     */
-    public int gainInfoCompletenessScore() {
-        int score = 0;
-        if (processName != null && !processName.isEmpty()) score += 1;
-        if (processId != null && processId > 0) score += 1;
-        if (commandLine != null && !commandLine.isEmpty()) score += 1;
-        if (listenAddress != null && !listenAddress.isEmpty() && !"unknown".equals(listenAddress)) score += 1;
-        return score;
-    }
+    private String family;           // 监听的地址类型(ipv4,ipv6)
 
     @Override
     public boolean equals(Object o) {
@@ -50,12 +37,13 @@ public class PortInfo extends Entity<Long> {
                 Objects.equals(protocol, portInfo.protocol) &&
                 Objects.equals(processName, portInfo.processName) &&
                 Objects.equals(commandLine, portInfo.commandLine) &&
-                Objects.equals(listenAddress, portInfo.listenAddress);
+                Objects.equals(listenAddress, portInfo.listenAddress) &&
+                Objects.equals(family, portInfo.family);
     }
 
     @Override
     public int hashCode() {
         // 不包含父类的hashCode，因为父类包含时间字段
-        return Objects.hash(agentId, protocol, portNumber, processName, processId, commandLine, listenAddress);
+        return Objects.hash(agentId, protocol, portNumber, processName, processId, commandLine, listenAddress,family);
     }
 }

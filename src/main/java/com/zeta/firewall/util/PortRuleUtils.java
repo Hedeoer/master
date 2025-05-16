@@ -121,6 +121,8 @@ public class PortRuleUtils {
 
                 boolean isEqualAgentId = portRule.getAgentId().equals(dbPortInfo.getAgentId());
 
+                boolean isEqualFamily = portRule.getFamily().equals(dbPortInfo.getFamily());
+
                 boolean isEqualPort;
                 String portPortRule = portRule.getPort();
                 Integer portPortInfo = dbPortInfo.getPortNumber();
@@ -138,7 +140,7 @@ public class PortRuleUtils {
                     isEqualPort = portPortRule.equals(portPortInfo + "");
                 }
 
-                if (isEqualProtocol && isEqualAgentId && isEqualPort) {
+                if (isEqualProtocol && isEqualAgentId && isEqualPort && isEqualFamily) {
                     portInfos.add(dbPortInfo);
                 }
             }
