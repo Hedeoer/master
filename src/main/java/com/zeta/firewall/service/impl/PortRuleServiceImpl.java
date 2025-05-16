@@ -79,7 +79,7 @@ public class PortRuleServiceImpl extends ServiceImpl<PortRuleMapper, PortRule> i
         // 通过Redis Stream查询
         // 构建消息体
         HashMap<String, String> map = new HashMap<>();
-        // todo 默认使用public区域
+        // 默认使用public区域
         map.put("zoneName", "public");
 
         List<String> primaryKeyColumns = List.of("family", "port", "protocol", "sourceRule", "policy", "agentId", "permanent", "type", "zone");

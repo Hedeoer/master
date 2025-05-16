@@ -57,15 +57,17 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
         /**
          * SELECT *
          * FROM firewall_port_info
-         * WHERE (agent_id, protocol, port_number) IN
-         *     (('node1', 'tcp', 80),
-         *      ('node2', 'udp', 443),
-         *      ('node3', 'tcp', 8080));
+         * WHERE (agent_id, protocol, port_number,family) IN
+         *     (('node1', 'tcp', 80,'ipv4'),
+         *      ('node2', 'udp', 443,'ipv4'),
+         *      ('node3', 'tcp', 8080,'ipv6'));
          */
         List<PortInfo> dbPortInfos = this.list(new QueryWrapper<PortInfo>()
                 .in("agent_id", portRules.stream().map(PortRule::getAgentId).collect(Collectors.toList()))
                 .in("protocol", portRules.stream().map(PortRule::getProtocol).collect(Collectors.toList()))
-                .in("port_number", portRules.stream().map(PortRule::getPort).collect(Collectors.toList())));
+                .in("port_number", portRules.stream().map(PortRule::getPort).collect(Collectors.toList()))
+                .in("family", portRules.stream().map(PortRule::getFamily).collect(Collectors.toList()))
+        );
 
         // dbPortInfos 和 portInfos 数量不一致，则需要发送redis命令来获取最新的端口
         if (dbPortInfos.size() == portInfos.size()) {
@@ -79,7 +81,6 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
         // 构建消息体
         HashMap<String, String> map = new HashMap<>();
         map.put("portType", "RANGE_PORT_COMMA");
-        // todo 端口信息封装
         // 去重端口号
         List<String> needPortUsageInfos = portInfos.stream()
                 .map(PortInfo::getPortNumber)
@@ -92,7 +93,7 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
             throw new RuntimeException(e);
         }
 
-        List<String> primaryKeyColumns = List.of("agentId", "protocol","portNumber");
+        List<String> primaryKeyColumns = List.of("agentId", "protocol","portNumber","family");
 
         RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
                 .agentId(nodeId)
@@ -182,7 +183,8 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
             QueryWrapper<PortInfo> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("agent_id", entity.getAgentId())
                     .eq("protocol", entity.getProtocol())
-                    .eq("port_number", entity.getPortNumber());
+                    .eq("port_number", entity.getPortNumber())
+                    .eq("family",entity.getFamily());
             PortInfo existing = getOne(queryWrapper);
             if (existing != null) {
                 // 如果存在，设置主键 ID，触发更新
@@ -213,7 +215,7 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
             throw new RuntimeException(e);
         }
 
-        List<String> primaryKeyColumns = List.of("agentId", "protocol","portNumber");
+        List<String> primaryKeyColumns = List.of("agentId", "protocol","portNumber","family");
 
         RedisCommandMessage<PortRule> build = RedisCommandMessage.<PortRule>builder()
                 .agentId(nodeId)
@@ -241,7 +243,7 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
 
     /**
      * 删除数据库中与notInUsePortInfos列表中记录相匹配的端口信息
-     * 匹配条件：agentId、protocol和portNumber相同
+     * 匹配条件：agentId、protocol和portNumber 和family相同
      *
      * @param notInUsePortInfos 不再使用的端口信息列表
      * @return 删除成功返回true，否则返回false
@@ -262,7 +264,8 @@ public class PortInfoServiceImpl extends ServiceImpl<PortInfoMapper, PortInfo> i
                 queryWrapper.or(wrapper -> wrapper
                     .eq("agent_id", portInfo.getAgentId())
                     .eq("protocol", portInfo.getProtocol())
-                    .eq("port_number", portInfo.getPortNumber()));
+                    .eq("port_number", portInfo.getPortNumber()))
+                    .eq("family", portInfo.getFamily());
             }
 
             // 执行删除操作

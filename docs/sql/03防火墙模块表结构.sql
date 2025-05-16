@@ -71,9 +71,10 @@ CREATE TABLE `firewall_port_info`
     `process_id`     int(11)      NULL DEFAULT NULL COMMENT '进程ID',
     `command_line`   text         NULL DEFAULT NULL COMMENT '完整命令行',
     `listen_address` varchar(255) NULL DEFAULT NULL COMMENT '监听地址',
+    `family` varchar(10) NOT NULL COMMENT '监听的地址类型(ipv4,ipv6)',
 
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `uk_agent_protocol_port` (`agent_id`, `protocol`, `port_number`) USING BTREE COMMENT 'agent节点协议端口唯一索引'
+    UNIQUE INDEX `uk_agent_protocol_port` (`agent_id`, `protocol`, `port_number`, `family`) USING BTREE COMMENT 'agent节点协议端口监听地址类型唯一索引'
 ) ENGINE = InnoDB
   CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = '防火墙端口使用信息表'

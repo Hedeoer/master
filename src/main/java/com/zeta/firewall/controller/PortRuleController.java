@@ -169,7 +169,6 @@ public class PortRuleController {
             PortRule portRule = portRuleDTO.toEntity();
 
             // 2. 调用服务层更新规则
-            // todo 更新时源地址未能更新
             Boolean result = portRuleService.updatePortRule(ruleId, portRule);
 
             if (result) {
